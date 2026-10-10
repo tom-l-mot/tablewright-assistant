@@ -1,0 +1,38 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { startCompanion } from '../companion/server.mjs';
+import { TOOLS } from '../module/lib/protocol.mjs';
+import { config, token, fakeGM } from './transport-fixture.mjs';
+import { npcRequest } from './fake-foundry.mjs';
+
+test('real SDK stdio client discovers and uses the live companion read/proposal tools', async t => {
+  const server = await startCompanion(config);
+  t.after(() => server.close());
+  const gm = await fakeGM(server.port);
+  const transport = new StdioClientTransport({ command: process.execPath, args: [fileURLToPath(new URL('../mcp/main.mjs', import.meta.url))], env: { ASSISTANT_TOKEN: token, ASSISTANT_PORT: String(server.port) }, stderr: 'pipe' });
+  let stderr = '';
+  transport.stderr?.on('data', chunk => { stderr += chunk.toString(); });
+  const client = new Client({ name: 'integration-check', version: '1.0.0' });
+  t.after(() => client.close());
+  await client.connect(transport);
+  const tools = await client.listTools();
+  assert.deepEqual(tools.tools.map(tool => tool.name), TOOLS.map(tool => tool.name));
+  assert.equal(tools.tools.some(tool => /approve|import|delete|macro/.test(tool.name)), false);
+  const status = await client.callTool({ name: 'connection_status', arguments: {} });
+  assert.equal(status.structuredContent.connected, true);
+  assert.equal(status.structuredContent.providerConfigured, false);
+  const context = await client.callTool({ name: 'world_context', arguments: {} });
+  assert.equal(context.structuredContent.world.id, 'test-world');
+  const proposal = await client.callTool({ name: 'propose_creation', arguments: { request: npcRequest } });
+  assert.equal(proposal.structuredContent.state, 'pending');
+  const read = await client.callTool({ name: 'get_plan', arguments: { id: proposal.structuredContent.id } });
+  assert.equal(read.structuredContent.name, npcRequest.name);
+  const unknown = await client.callTool({ name: 'approve', arguments: {} });
+  assert.equal(unknown.isError, true);
+  assert.equal(gm.writes.length, 0);
+  assert.equal(stderr, '');
+  gm.ws.close();
+});
