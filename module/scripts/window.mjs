@@ -43,7 +43,7 @@ export function createWindow(adapter, plans, connection) {
       await this.refresh();
       try { await action(); }
       catch (error) { this.status = safeError(error).message; }
-      finally { this.busy = false; this.focusId = 'assistant-status'; await this.refresh(); }
+      finally { this.capture(); this.busy = false; this.focusId = 'assistant-status'; await this.refresh(); }
     }
 
     async _renderHTML() {

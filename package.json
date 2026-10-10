@@ -5,8 +5,8 @@
   "type": "module",
   "engines": { "node": ">=22" },
   "scripts": {
-    "start": "node --env-file-if-exists=.env companion/main.mjs",
-    "mcp": "node --env-file-if-exists=.env mcp/main.mjs",
+    "start": "node --env-file=.env companion/main.mjs",
+    "mcp": "node mcp/main.mjs",
     "token": "node scripts/token.mjs",
     "test": "node --test",
     "package": "node scripts/package.mjs"

@@ -95,3 +95,16 @@ test('provider encounter proposals cannot change explicit GM party inputs', asyn
   await runProvider({ ...config, apiKey: key, model: 'fake' }, 'Encounter', { level: 4, size: 4, threat: 'moderate' }, async () => { routed++; }, { fetchImpl: fakeFetch });
   assert.equal(routed, 0);
 });
+
+test('provider cancellation stops a wait for an outstanding Foundry tool', async () => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10);
+  let fetches = 0;
+  try {
+    await assert.rejects(runProvider({ ...config, apiKey: key, model: 'fake' }, 'Read the world', null, () => new Promise(() => {}), {
+      signal: controller.signal,
+      fetchImpl: async () => { fetches++; return new Response(JSON.stringify({ output: [functionCall('cancel', 'world_context', {})] })); }
+    }), error => error.code === 'PROVIDER_TIMEOUT');
+    assert.equal(fetches, 1);
+  } finally { clearTimeout(timer); }
+});
