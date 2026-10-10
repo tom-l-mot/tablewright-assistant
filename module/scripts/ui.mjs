@@ -30,7 +30,7 @@ function planMarkup(plan, busy) {
 export function windowMarkup(state) {
   const connected = state.connectionState === 'connected';
   const connectionBusy = state.connectionState !== 'disconnected';
-  return `<section class="assistant-body" aria-label="PF2e assistant">
+  return `<section class="assistant-body" aria-label="Tablewright Assistant">
     <p id="assistant-status" role="status" aria-live="polite" aria-atomic="true" tabindex="-1">${e(state.status)}</p>
     <form data-form="connection" autocomplete="off"><fieldset><legend>Local companion connection</legend>
       <label for="assistant-url">WebSocket URL</label><input id="assistant-url" name="url" type="url" value="${e(state.url)}" required ${connectionBusy ? 'disabled' : ''}>

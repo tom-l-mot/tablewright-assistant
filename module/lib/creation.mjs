@@ -1,7 +1,7 @@
 import { fail, integer, object, text } from './validation.mjs';
 import { validateParty } from './encounter.mjs';
 
-export const MODULE_ID = 'pf2e-foundry-assistant';
+export const MODULE_ID = 'tablewright-assistant';
 export const PHYSICAL_TYPES = new Set(['armor', 'backpack', 'book', 'consumable', 'equipment', 'shield', 'treasure', 'weapon']);
 export const UUID_PATTERN = '^Compendium\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.(Actor|Item)\\.[A-Za-z0-9]{16}$';
 

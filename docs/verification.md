@@ -1,8 +1,8 @@
 # Verification evidence
 
-These are local alpha checks. No live Foundry/PF2e world, private world files, or paid API call was used. Foundry import behavior uses fixtures plus inspected public APIs and installed PF2e system source. Node 26.4.0 and Windows PowerShell ran the commands.
+These are local alpha checks. The initial 0.1.0 evidence below remains historical. The Tablewright 0.1.1 rename checks have their own section at the end. No live Foundry/PF2e world, private world files, or paid API call was used. Foundry import behavior uses fixtures plus inspected public APIs and installed PF2e system source. Node 26.4.0 and Windows PowerShell ran the commands.
 
-## Completed focused checks
+## Initial 0.1.0 focused checks
 
 | Command | Actual result |
 | --- | --- |
@@ -58,10 +58,22 @@ The pre-fix check failed with actual `Original request` and expected `Next reque
 
 `codex mcp add --help` exited successfully and confirmed the documented stdio command and repeatable `--env KEY=VALUE` option. No actual global MCP configuration was changed.
 
-## Final candidate checks
+## Initial 0.1.0 final candidate checks
 
 `npm test` passed all 39 behavior/package checks. Its command explicitly names the eight committed test files, so ignored upstream/work directories cannot add tests. An earlier default-discovery run reported 41 checks because it also loaded two fixture modules. `npm run package` created the actual module ZIP. `node --test test/package.test.mjs` checks its exact entries, module/import completeness, referenced documentation, unchanged runtime file content, MIT notice, exclusion of credentials/dependencies, browser syntax, and token format.
 
-The archive contains 19 files beneath pf2e-foundry-assistant. Packaging uses Windows PowerShell. Package staging folders remain ignored under dist. No recursive cleanup or world deletion was performed.
+The initial archive contained 19 files beneath pf2e-foundry-assistant. Packaging uses Windows PowerShell. Package staging folders remain ignored under dist. No recursive cleanup or world deletion was performed.
 
 `git diff --check` passed before the package commit. Read-only system inspection and local fixture checks are the evidence for fields and API usage. The live checklist remains open.
+
+## Tablewright 0.1.1 rename checks
+
+The rename updates the repository references, module ID, npm package, MCP server, window title, CSS scope, companion message, and ZIP identity. The runtime logic and dependencies remain the initial alpha's implementation. Module settings and import provenance now use `tablewright-assistant`; old imports and settings are not migrated. The [numbered install guide](install.md) covers disabling the earlier module, reentering settings, and trying a disposable world first.
+
+Parent execution on Windows with Node 26.4.0 produced these results.
+
+- `npm run package` succeeded and created `dist/tablewright-assistant-0.1.1.zip`.
+- `inspectPackage` read the actual ZIP and returned 20 files, the expected module ID, title, and version, and the included `docs/install.md`.
+- `node --test test/mcp.test.mjs` passed 1 test. The real SDK client initialized the renamed stdio process and used the companion's six read/proposal tools.
+
+The earlier 39-test run is evidence for version 0.1.0, not a new full-suite result for this rename. The final archive and immutable commit checks are recorded in the rename's local task evidence. No installation into Foundry, global MCP registration, paid API request, or live-world import was performed during the rename.

@@ -3,7 +3,7 @@ import { safeError } from '../lib/validation.mjs';
 
 export function createWindow(adapter, plans, connection) {
   return new class AssistantWindow extends foundry.applications.api.ApplicationV2 {
-    static DEFAULT_OPTIONS = { id: 'pf2e-foundry-assistant', tag: 'div', classes: ['pf2e-assistant'], window: { title: 'PF2e assistant', resizable: true }, position: { width: 720, height: 720 } };
+    static DEFAULT_OPTIONS = { id: 'tablewright-assistant', tag: 'div', classes: ['tablewright-assistant'], window: { title: 'Tablewright Assistant', resizable: true }, position: { width: 720, height: 720 } };
 
     constructor() {
       super();

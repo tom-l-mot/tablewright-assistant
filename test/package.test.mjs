@@ -10,10 +10,10 @@ import { inspectPackage } from '../scripts/inspect-package.mjs';
 test('actual module ZIP is complete, self-contained, and excludes credentials and dependencies', async () => {
   const archive = await packageModule();
   const files = inspectPackage(archive);
-  const prefix = 'pf2e-foundry-assistant/';
+  const prefix = 'tablewright-assistant/';
   assert.deepEqual(files.map(file => file.name).sort(), PACKAGE_FILES.map(name => prefix + name).sort());
   const manifest = JSON.parse(files.find(file => file.name === prefix + 'module.json').text);
-  assert.equal(manifest.id, 'pf2e-foundry-assistant');
+  assert.equal(manifest.id, 'tablewright-assistant');
   assert.deepEqual(manifest.compatibility, { minimum: '13', maximum: '14' });
   assert.equal(Object.hasOwn(manifest.compatibility, 'verified'), false);
   assert.equal(files.some(file => /(^|\/)(node_modules|\.env|companion|mcp|work|\.git|test)(\/|$)/.test(file.name)), false);

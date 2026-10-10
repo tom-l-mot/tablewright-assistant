@@ -8,7 +8,7 @@ import { boundedJSON } from '../companion/http-json.mjs';
 
 try {
   const config = proxyConfig();
-  const server = new Server({ name: 'pf2e-foundry-assistant', version: '0.1.0' }, { capabilities: { tools: {} } });
+  const server = new Server({ name: 'tablewright-assistant', version: '0.1.1' }, { capabilities: { tools: {} } });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
   server.setRequestHandler(CallToolRequestSchema, async request => {
     try {

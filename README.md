@@ -1,4 +1,6 @@
-# Install and run the private local alpha
+# Tablewright Assistant
+
+Follow the [numbered installation guide](docs/install.md) to set up the private local alpha. The repository is [tom-l-mot/tablewright-assistant](https://github.com/tom-l-mot/tablewright-assistant).
 
 The GM uses a Foundry window to review canonical NPC, merchant, and encounter plans. Only a GM click in that window creates documents. Local Codex or Claude MCP clients can search and propose without a provider key.
 
@@ -44,17 +46,17 @@ Build the archive.
 npm run package
 ```
 
-The result is `dist/pf2e-foundry-assistant-0.1.0.zip`. It contains the complete browser module, README, license, provenance, and MIT third-party notice. It contains no companion dependencies or compendium content.
+The result is `dist/tablewright-assistant-0.1.1.zip`. It contains the complete browser module, installation guide, README, license, provenance, and MIT third-party notice. It contains no companion dependencies or compendium content.
 
 Stop Foundry before installing the module. Extract into your Foundry data `modules` directory. This machine's observed data path is `D:\FoundryVTT`.
 
 ```powershell
-Expand-Archive -LiteralPath '.\dist\pf2e-foundry-assistant-0.1.0.zip' -DestinationPath 'D:\FoundryVTT\Data\modules'
+Expand-Archive -LiteralPath '.\dist\tablewright-assistant-0.1.1.zip' -DestinationPath 'D:\FoundryVTT\Data\modules'
 ```
 
-Replace the destination if your data path differs. If that module directory already exists, preserve it before replacing it. The extracted layout must be `Data/modules/pf2e-foundry-assistant/module.json`.
+Replace the destination if your data path differs. If that module directory already exists, preserve it before replacing it. The extracted layout must be `Data/modules/tablewright-assistant/module.json`.
 
-Start Foundry and enable **PF2e Foundry Assistant** in a disposable PF2e world. In **Configure Settings**, optionally enter comma-separated exact module pack IDs in **Additional permitted module compendiums**. PF2e system Actor and Item packs are permitted by default. World packs and Macro, Journal, and other document types are rejected.
+Start Foundry and enable **Tablewright Assistant** in a disposable PF2e world. In **Configure Settings**, optionally enter comma-separated exact module pack IDs in **Additional permitted module compendiums**. PF2e system Actor and Item packs are permitted by default. World packs and Macro, Journal, and other document types are rejected.
 
 Enabling a pack does not establish rights to share its metadata with a model. This is a private local alpha. Public release, official Foundry package listing, and content-rights review remain pending under [Foundry's AI policy](https://foundryvtt.com/article/ai-policy/).
 
@@ -66,7 +68,7 @@ Start the companion from the repository.
 npm start
 ```
 
-npm start reads the configured .env file. To use only process environment variables, run node companion/main.mjs instead. Its stderr reports `PF2e assistant companion listening on 127.0.0.1:33333.` The port changes if you configured another value.
+npm start reads the configured .env file. To use only process environment variables, run node companion/main.mjs instead. Its stderr reports `Tablewright Assistant companion listening on 127.0.0.1:33333.` The port changes if you configured another value.
 
 1. Open Foundry on HTTP in a browser on the companion machine.
 2. Type `@assistant` in Foundry chat. Add a request after the prefix to prefill the window.
@@ -92,7 +94,7 @@ For Claude Desktop or another client that uses JSON MCP configuration, replace t
 ```json
 {
   "mcpServers": {
-    "pf2e-foundry-assistant": {
+    "tablewright-assistant": {
       "command": "node",
       "args": ["C:\\path\\to\\checkout\\mcp\\main.mjs"],
       "env": {
@@ -107,16 +109,16 @@ For Claude Desktop or another client that uses JSON MCP configuration, replace t
 For Codex CLI, the verified command form is shown below. Replace both placeholders before running it. This writes your local MCP configuration.
 
 ```powershell
-codex mcp add pf2e-foundry-assistant --env 'ASSISTANT_TOKEN=<generated-companion-token>' --env 'ASSISTANT_PORT=33333' -- node 'C:\path\to\checkout\mcp\main.mjs'
+codex mcp add tablewright-assistant --env 'ASSISTANT_TOKEN=<generated-companion-token>' --env 'ASSISTANT_PORT=33333' -- node 'C:\path\to\checkout\mcp\main.mjs'
 ```
 For a TOML client configuration, use the same process and environment.
 
 ```toml
-[mcp_servers.pf2e_foundry_assistant]
+[mcp_servers.tablewright_assistant]
 command = "node"
 args = ["C:\\path\\to\\checkout\\mcp\\main.mjs"]
 
-[mcp_servers.pf2e_foundry_assistant.env]
+[mcp_servers.tablewright_assistant.env]
 ASSISTANT_TOKEN = "<generated-companion-token>"
 ASSISTANT_PORT = "33333"
 ```
@@ -144,7 +146,7 @@ Encounters create the selected NPC copies and then a GM-only journal roster. The
 
 XP uses actual resolved creature levels, not model arithmetic. Creature differences outside -4 through +4 and proficiency without level are rejected. Four-PC budgets are 40, 60, 80, 120, and 160 XP. Per-PC adjustments are 10, 20, 20, 30, and 40 XP. Nonmatching totals identify the interval between budgets. See [GM Core combat threats](https://2e.aonprd.com/Rules.aspx?ID=2716).
 
-Approval rechecks GM permission, permitted sources, source snapshots, and the proficiency variant. Only one approval runs at a time. Stable document IDs and `flags.pf2e-foundry-assistant` provenance identify completed steps.
+Approval rechecks GM permission, permitted sources, source snapshots, and the proficiency variant. Only one approval runs at a time. Stable document IDs and `flags.tablewright-assistant` provenance identify completed steps.
 
 If a creation fails, the plan becomes partial and stops. Completed imports remain. Click **Retry missing creations** to reconcile existing planned IDs and create only missing steps. There is no automatic world retry or rollback deletion. A changed source requires rejecting the plan and proposing a fresh one. A conflicting ID or a removed completed document stops retry.
 
