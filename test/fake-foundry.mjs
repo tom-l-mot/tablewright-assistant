@@ -29,7 +29,9 @@ export function fakeFoundry() {
     ] }
   };
   const state = { failAt: null, failAfterWrite: false, delay: null };
-  const create = documentName => async data => {
+  const create = documentName => async (input, options) => {
+    const data = structuredClone(input);
+    if (!options.keepEmbeddedIds && data.items) data.items.forEach((item, index) => { item._id = 'regenerated' + index; });
     const index = writes.length + 1;
     if (state.delay) await state.delay;
     if (state.failAt === index && !state.failAfterWrite) throw new Error('simulated create failure');

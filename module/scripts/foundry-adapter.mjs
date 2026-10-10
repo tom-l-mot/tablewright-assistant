@@ -75,7 +75,7 @@ export class FoundryAdapter {
 
   async create(documentName, data) {
     this.requireGM();
-    const result = await this.classes[documentName].create(data, { keepId: true, renderSheet: false });
+    const result = await this.classes[documentName].create(data, { keepId: true, keepEmbeddedIds: true, renderSheet: false });
     return Array.isArray(result) ? result[0] : result;
   }
 }
