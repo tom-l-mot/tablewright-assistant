@@ -40,6 +40,7 @@ export async function runProvider(config, prompt, party, callTool, { fetchImpl =
       try {
         if (!BROWSER_METHODS.includes(call.name)) fail('METHOD', 'This model tool is not permitted.');
         const args = validateTool(call.name, JSON.parse(call.arguments));
+        if (call.name === 'propose_creation' && args.request.kind === 'encounter' && ['level', 'size', 'threat'].some(key => args.request.party[key] !== party[key])) fail('PARTY', 'Encounter proposals must use the explicit party inputs selected by the GM.');
         output = await callTool(call.name, args);
         if (call.name === 'propose_creation' && output.id) planIds.push(output.id);
       } catch (error) {

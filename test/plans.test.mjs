@@ -132,3 +132,30 @@ test('rejected plans and conflicting IDs cannot write', async () => {
   assert.equal((await env.plans.approve(conflict.id)).error.code, 'CONFLICT');
   assert.equal(env.writes.length, 0);
 });
+
+test('merchant container links survive the real adapter creation options', async () => {
+  const env = fakeFoundry();
+  const containerId = 'DDDDDDDDDDDDDDDD';
+  const containerUUID = `Compendium.pf2e.equipment.Item.${containerId}`;
+  const container = { _id: containerId, name: 'Backpack', type: 'backpack', system: { quantity: 1, containerId: null }, flags: {} };
+  env.documents.set(containerUUID, { documentName: 'Item', toObject: () => structuredClone(container) });
+  env.itemRaw.system.containerId = containerId;
+  const plan = await env.plans.propose({ ...shopRequest, entries: [...shopRequest.entries, { uuid: containerUUID, quantity: 1 }] });
+  assert.equal((await env.plans.approve(plan.id)).state, 'complete');
+  const items = env.writes[0].data.items;
+  assert.equal(items[0].system.containerId, items[1]._id);
+  assert.equal(items[0].system.quantity, 3);
+});
+
+test('installed PF2e Boolean proficiency variant blocks unsupported encounter math', async () => {
+  const env = fakeFoundry();
+  env.settings.variant = true;
+  assert.equal(env.adapter.context().proficiencyWithoutLevel, true);
+  await assert.rejects(env.plans.propose(encounterRequest), /without level/);
+  env.settings.variant = false;
+  const plan = await env.plans.propose(encounterRequest);
+  assert.equal(plan.xp.totalXP, 80);
+  env.settings.variant = 'unknown';
+  assert.throws(() => env.adapter.context(), /not recognized/);
+  assert.equal(env.writes.length, 0);
+});

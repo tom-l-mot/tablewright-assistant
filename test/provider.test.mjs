@@ -81,3 +81,17 @@ test('provider rejects unauthorized tools and stops bounded repeated calls', asy
   assert.equal(requests, 8);
   assert.equal(routed, 0);
 });
+
+test('provider encounter proposals cannot change explicit GM party inputs', async () => {
+  const request = { ...npcRequest, kind: 'encounter', party: { level: 10, size: 4, threat: 'severe' } };
+  let routed = 0;
+  let count = 0;
+  const fakeFetch = async (_url, options) => {
+    const body = JSON.parse(options.body);
+    if (count++ === 0) return new Response(JSON.stringify({ output: [functionCall('party', 'propose_creation', { request })] }));
+    assert.equal(body.input.at(-1).output.includes('explicit party inputs'), true);
+    return new Response(JSON.stringify({ output: [message('Unable to change the selected party.')] }));
+  };
+  await runProvider({ ...config, apiKey: key, model: 'fake' }, 'Encounter', { level: 4, size: 4, threat: 'moderate' }, async () => { routed++; }, { fetchImpl: fakeFetch });
+  assert.equal(routed, 0);
+});

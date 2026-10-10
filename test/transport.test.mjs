@@ -108,3 +108,28 @@ test('malformed browser errors reject pending requests rather than leaving them 
   assert.equal(response.status, 400);
   assert.equal((await response.json()).error.code, 'DISCONNECTED');
 });
+
+test('disconnect during a pending read rejects the actual HTTP request', async t => {
+  const server = await serverFor(t);
+  const ws = await connectBrowser(server.port);
+  const call = once(ws, 'message');
+  const response = rpc(server.port, 'world_context');
+  await call;
+  ws.close();
+  const value = await response;
+  assert.equal(value.status, 400);
+  assert.equal((await value.json()).error.code, 'DISCONNECTED');
+});
+
+test('nested results redact provider credentials including escaped characters', async t => {
+  const secret = 'fake-key-with-"quote"-and-\\backslash';
+  const server = await serverFor(t, { apiKey: secret });
+  const gm = await fakeGM(server.port);
+  gm.game.world.title = `prefix ${secret} suffix`;
+  gm.actorRaw.name = secret;
+  const context = await (await rpc(server.port, 'world_context')).json();
+  const source = await (await rpc(server.port, 'read_source', { uuid: 'Compendium.pf2e.bestiary.Actor.1234567890ABCDEF' })).json();
+  assert.equal(context.result.world.title, 'prefix [redacted] suffix');
+  assert.equal(source.result.source.name, '[redacted]');
+  gm.ws.close();
+});

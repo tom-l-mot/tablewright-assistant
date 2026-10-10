@@ -19,7 +19,10 @@ export class FoundryAdapter {
   }
 
   withoutLevel() {
-    return this.game.settings.get('pf2e', 'proficiencyVariant') === 'ProficiencyWithoutLevel';
+    const variant = this.game.settings.get('pf2e', 'proficiencyVariant');
+    if (variant === true || variant === 'ProficiencyWithoutLevel') return true;
+    if (variant === false || variant === 'ProficiencyWithLevel') return false;
+    fail('VARIANT', 'The proficiency variant setting is not recognized. Encounter math cannot be verified.');
   }
 
   context() {

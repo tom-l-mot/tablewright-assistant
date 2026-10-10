@@ -1,0 +1,16 @@
+.pf2e-assistant .window-content { overflow: auto; padding: 1rem; }
+.pf2e-assistant .assistant-body { display: grid; gap: 1rem; }
+.pf2e-assistant fieldset { display: grid; gap: .5rem; border: 1px solid var(--color-border-light-primary, #777); border-radius: .3rem; padding: .75rem; }
+.pf2e-assistant label { font-weight: 600; }
+.pf2e-assistant .assistant-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.pf2e-assistant .assistant-party { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+.pf2e-assistant .assistant-party > div { display: grid; gap: .25rem; }
+.pf2e-assistant .assistant-plan { border: 1px solid var(--color-border-light-primary, #777); border-radius: .3rem; padding: .75rem; margin: .75rem 0; }
+.pf2e-assistant .assistant-background, .pf2e-assistant .assistant-response { white-space: pre-wrap; overflow-wrap: anywhere; }
+.pf2e-assistant table { width: 100%; table-layout: fixed; }
+.pf2e-assistant caption { text-align: left; font-weight: 600; padding: .3rem 0; }
+.pf2e-assistant th, .pf2e-assistant td { padding: .35rem; text-align: left; overflow-wrap: anywhere; vertical-align: top; }
+.pf2e-assistant th:nth-child(2), .pf2e-assistant th:nth-child(3) { width: 10%; }
+.pf2e-assistant small { font-size: .85rem; }
+.pf2e-assistant :focus-visible { outline: 3px solid var(--color-warm-1, #efb04c); outline-offset: 2px; }
+@media (max-width: 600px) { .pf2e-assistant .assistant-party { grid-template-columns: 1fr; } }
