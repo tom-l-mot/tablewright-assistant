@@ -1,0 +1,5 @@
+ts	phase	decision	why	evidence	result
+2026-10-09T00:00:00Z	frame	Implement the selected browser-owned plan design with one writer	Approval stays in the GM browser and state has one owner	docs/architecture.md	open
+2026-10-10T07:00:23.9084639Z	frame	Supersede the initial placeholder timestamp with this observed timestamp	The initial row did not use the host clock	docs/implementation.tsv:2	recorded
+2026-10-10T07:00:23.9084639Z	domain	Validate structured references and compute XP from canonical levels	Model the domain as a bounded request with explicit party inputs	node --test test/domain.test.mjs	VERIFIED 4 tests passed
+2026-10-10T07:00:23.9084639Z	environment	Move dependency work to the authorized physical-disk worktree	Google Drive npm extraction failed with EBADF and tar write errors	npm install --ignore-scripts	FAILED on G drive; relocation authorized

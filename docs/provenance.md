@@ -21,3 +21,5 @@ Foundry and PF2e are installed prerequisites. Their content remains in the user'
 - [Official MCP TypeScript SDK stdio guide](https://github.com/modelcontextprotocol/typescript-sdk/blob/main/docs/serving/stdio.md)
 
 Observed registry versions during setup: `@modelcontextprotocol/server` 2.3.1, legacy `@modelcontextprotocol/sdk` 1.32.1, `ws` 8.22.0. Pin the dependency actually used and verify its real exports during implementation.
+
+Implemented reuse: module/lib/index-fields.mjs adapts only getNestedValue from the bridge. THIRD_PARTY_NOTICES carries its complete MIT notice and ships in the module archive. Other implementation code is original under LICENSE.
