@@ -51,3 +51,12 @@ test('index summary accepts flat and nested Foundry fields without loading full 
   assert.equal(indexSummary(flat, { collection: 'pf2e.bestiary', documentName: 'Actor' }).level, 5);
   assert.equal(indexSummary(nested, { collection: 'pf2e.bestiary', documentName: 'Actor' }).uuid, uuid);
 });
+
+test('encounter labels describe actual XP between adjusted budget thresholds', () => {
+  const party = { level: 4, size: 4, threat: 'low' };
+  assert.equal(encounterXP(party, [{ level: 3, quantity: 1 }]).actualThreat, 'trivial');
+  assert.equal(encounterXP(party, [{ level: 2, quantity: 1 }, { level: 3, quantity: 1 }]).actualThreat, 'between trivial and low');
+  assert.equal(encounterXP(party, [{ level: 3, quantity: 1 }, { level: 4, quantity: 1 }]).actualThreat, 'between low and moderate');
+  assert.equal(encounterXP({ ...party, size: 5 }, [{ level: 4, quantity: 2 }]).actualThreat, 'low');
+  assert.equal(encounterXP({ ...party, size: 2 }, [{ level: 2, quantity: 1 }]).actualThreat, 'trivial or low');
+});

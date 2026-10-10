@@ -28,10 +28,15 @@ export function encounterXP(party, creatures) {
     return { name, uuid, level, quantity, xpEach, xp: xpEach * quantity };
   });
   const totalXP = roster.reduce((sum, creature) => sum + creature.xp, 0);
-  let actualThreat = 'below trivial';
-  for (const threat of Object.keys(THREATS)) {
-    if (totalXP >= encounterBudget({ ...party, threat })) actualThreat = threat;
+  const thresholds = Object.keys(THREATS).map(threat => ({ threat, xp: encounterBudget({ ...party, threat }) })).sort((a, b) => a.xp - b.xp);
+  const exact = thresholds.filter(target => target.xp === totalXP).map(target => target.threat);
+  let actualThreat;
+  if (exact.length) actualThreat = exact.join(' or ');
+  else if (totalXP < encounterBudget({ ...party, threat: 'trivial' })) actualThreat = 'trivial';
+  else if (totalXP > thresholds.at(-1).xp) actualThreat = 'above extreme';
+  else {
+    const upperIndex = thresholds.findIndex(target => target.xp > totalXP);
+    actualThreat = `between ${thresholds[upperIndex - 1].threat} and ${thresholds[upperIndex].threat}`;
   }
-  if (totalXP > encounterBudget({ ...party, threat: 'extreme' })) actualThreat = 'above extreme';
   return { targetXP, totalXP, difference: totalXP - targetXP, actualThreat, roster };
 }
