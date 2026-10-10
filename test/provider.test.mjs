@@ -96,15 +96,19 @@ test('provider encounter proposals cannot change explicit GM party inputs', asyn
   assert.equal(routed, 0);
 });
 
-test('provider cancellation stops a wait for an outstanding Foundry tool', async () => {
+test('provider cancellation stops a wait for an outstanding Foundry tool', { timeout: 2000 }, async () => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10);
   let fetches = 0;
+  const routed = [];
   try {
-    await assert.rejects(runProvider({ ...config, apiKey: key, model: 'fake' }, 'Read the world', null, () => new Promise(() => {}), {
+    await assert.rejects(runProvider({ ...config, apiKey: key, model: 'fake' }, 'Read the world', null, name => { routed.push(name); return new Promise(() => {}); }, {
       signal: controller.signal,
-      fetchImpl: async () => { fetches++; return new Response(JSON.stringify({ output: [functionCall('cancel', 'world_context', {})] })); }
+      fetchImpl: async () => { fetches++; return new Response(JSON.stringify({ output: [functionCall('cancel', 'world_context', {}), functionCall('later', 'propose_creation', { request: npcRequest })] })); }
     }), error => error.code === 'PROVIDER_TIMEOUT');
     assert.equal(fetches, 1);
+    assert.deepEqual(routed, ['world_context']);
+    await assert.rejects(runProvider({ ...config, apiKey: key, model: 'fake' }, 'Already cancelled', null, async name => { routed.push(name); }, { signal: controller.signal, fetchImpl: async () => new Response(JSON.stringify({ output: [functionCall('aborted', 'world_context', {})] })) }), error => error.code === 'PROVIDER_TIMEOUT');
+    assert.deepEqual(routed, ['world_context']);
   } finally { clearTimeout(timer); }
 });

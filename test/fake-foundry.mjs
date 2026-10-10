@@ -15,7 +15,7 @@ export function fakeFoundry() {
   const documents = new Map();
   const writes = [];
   const settings = { extras: '', variant: 'ProficiencyWithLevel' };
-  const actorRaw = { _id: '1234567890ABCDEF', name: 'Scout', type: 'npc', system: { details: { level: { value: 4 }, publicNotes: '<p>Licensed source text</p>', privateNotes: '' } }, items: [{ _id: 'BBBBBBBBBBBBBBBB', name: 'Bow', type: 'weapon', system: { quantity: 1, linkedItemId: 'CCCCCCCCCCCCCCCC' } }, { _id: 'CCCCCCCCCCCCCCCC', name: 'Arrow', type: 'consumable', system: { quantity: 10 } }], flags: {} };
+  const actorRaw = { _id: '1234567890ABCDEF', name: 'Scout', type: 'npc', system: { details: { level: { value: 4 }, publicNotes: '<p>Licensed source text</p>', privateNotes: '' } }, items: [{ _id: 'BBBBBBBBBBBBBBBB', name: 'Arcane bolt', type: 'spell', system: { location: { value: 'CCCCCCCCCCCCCCCC' } } }, { _id: 'CCCCCCCCCCCCCCCC', name: 'Arcane spells', type: 'spellcastingEntry', system: { tradition: { value: 'arcane' } } }], flags: {} };
   const itemRaw = { _id: 'ABCDEF1234567890', name: 'Rope', type: 'equipment', system: { level: { value: 0 }, quantity: 1, containerId: null, description: { value: 'Licensed item text' } }, flags: {} };
   for (const [uuid, raw] of [[actorUUID, actorRaw], [itemUUID, itemRaw]]) documents.set(uuid, { documentName: uuid.includes('.Actor.') ? 'Actor' : 'Item', toObject: () => structuredClone(raw) });
   const collection = (contents, map) => ({ contents, get: id => map.get(id), fromCompendium: document => { const data = document.toObject(); delete data._id; data.flags.core = { sourceId: document.documentName === 'Actor' ? actorUUID : itemUUID }; return data; } });

@@ -8,7 +8,7 @@
     "start": "node --env-file=.env companion/main.mjs",
     "mcp": "node mcp/main.mjs",
     "token": "node scripts/token.mjs",
-    "test": "node --test",
+    "test": "node --test test/browser.test.mjs test/domain.test.mjs test/mcp.test.mjs test/package.test.mjs test/plans.test.mjs test/provider.test.mjs test/transport.test.mjs test/window.test.mjs",
     "package": "node scripts/package.mjs"
   },
   "dependencies": {

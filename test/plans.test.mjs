@@ -31,7 +31,7 @@ test('NPC import preserves canonical embedded IDs and escapes the custom backgro
   assert.equal(data.system.details.publicNotes, '<p>Licensed source text</p>');
   assert.equal(data.system.details.privateNotes.includes('<script>'), false);
   assert.equal(data.items[0]._id, 'BBBBBBBBBBBBBBBB');
-  assert.equal(data.items[0].system.linkedItemId, data.items[1]._id);
+  assert.equal(data.items[0].system.location.value, data.items[1]._id);
   assert.equal(data.flags[MODULE_ID].sourceUuid, actorUUID);
   await env.plans.approve(plan.id);
   assert.equal(env.writes.length, 1);
