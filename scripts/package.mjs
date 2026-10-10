@@ -9,7 +9,7 @@ export const MODULE_FILES = [
   'scripts/foundry-adapter.mjs', 'scripts/connection.mjs', 'scripts/main.mjs',
   'scripts/ui.mjs', 'scripts/window.mjs', 'styles/assistant.css'
 ];
-export const PACKAGE_FILES = [...MODULE_FILES, 'LICENSE', 'THIRD_PARTY_NOTICES', 'README.md', 'docs/install.md', 'docs/architecture.md', 'docs/provenance.md', 'docs/verification.md'];
+export const PACKAGE_FILES = [...MODULE_FILES, 'LICENSE', 'THIRD_PARTY_NOTICES', 'README.md', 'docs/install.md', 'docs/technical-reference.md', 'docs/architecture.md', 'docs/provenance.md', 'docs/verification.md'];
 export const root = fileURLToPath(new URL('../', import.meta.url));
 export const psLiteral = value => `'${value.replaceAll("'", "''")}'`;
 
@@ -27,7 +27,7 @@ export async function packageModule() {
     await mkdir(dirname(target), { recursive: true });
     await copyFile(join(root, 'module', file), target);
   }
-  for (const file of ['LICENSE', 'THIRD_PARTY_NOTICES', 'README.md', 'docs/install.md', 'docs/architecture.md', 'docs/provenance.md', 'docs/verification.md']) {
+  for (const file of ['LICENSE', 'THIRD_PARTY_NOTICES', 'README.md', 'docs/install.md', 'docs/technical-reference.md', 'docs/architecture.md', 'docs/provenance.md', 'docs/verification.md']) {
     const target = join(folder, file);
     await mkdir(dirname(target), { recursive: true });
     await copyFile(join(root, file), target);
