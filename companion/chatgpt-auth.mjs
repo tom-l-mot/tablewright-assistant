@@ -61,7 +61,7 @@ export class ChatGPTAuth {
     if (newAccount && this.record.account?.refreshToken) fail('CHATGPT_AUTH', 'Sign out of the current ChatGPT account first.');
     // shortcut: one saved ChatGPT account per companion; add an account picker when switching without sign-out is needed.
     const clientId = newAccount ? (this.record.pendingClientId ?? null) : (this.record.account?.clientId ?? this.record.pendingClientId ?? null);
-    this.pending = { state, nonce, verifier, redirectUri, clientId, startedAt: Date.now() };
+    this.pending = { state, nonce, verifier, redirectUri, clientId, newAccount, startedAt: Date.now() };
     const url = new URL(`${ISSUER}/api/accounts/authorize`);
     const params = { client_id: clientId ?? 'dynamic_agent_client', ext_agent_host_id: this.record.hostId, response_type: 'code', redirect_uri: redirectUri, scope: SCOPES, resource: RESOURCE, state, nonce, code_challenge_method: 'S256', code_challenge: createHash('sha256').update(verifier).digest('base64url') };
     if (!clientId) params.agent_name_hint = 'Tablewright Assistant';
@@ -109,7 +109,7 @@ export class ChatGPTAuth {
       await this.#revoke(tokens.refreshToken, clientId);
       fail('CHATGPT_AUTH', 'This ChatGPT sign-in was cancelled.');
     }
-    if (pending.clientId && this.record.account && identity.subject !== this.record.account.subject) fail('CHATGPT_AUTH', 'ChatGPT returned a different account.');
+    if (pending.clientId && !pending.newAccount && this.record.account && identity.subject !== this.record.account.subject) fail('CHATGPT_AUTH', 'ChatGPT returned a different account.');
     const candidate = { clientId, ...identity, ...tokens, models: [], model: '' };
     this.record = { ...this.record, account: candidate, pendingClientId: null };
     await this.store.save(this.record);

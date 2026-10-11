@@ -65,7 +65,12 @@ test('issued client ID survives failed code exchange for returning authorization
 test('another-account retry reuses its issued ID while returning sign-in keeps the saved account', async () => {
   const store = memoryCredentialStore();
   await store.save({ hostId: 'urn:uuid:00000000-0000-0000-0000-000000000001', account: { clientId: 'oaiapp_A', subject: 'account-A', email: 'a@example.test', models: [], model: '' } });
-  const auth = new ChatGPTAuth({ store, fetchImpl: async () => new Response('{}', { status: 400 }) });
+  let exchanges = 0;
+  const auth = new ChatGPTAuth({ store, fetchImpl: async url => {
+    if (url.endsWith('/oauth/token')) return ++exchanges === 1 ? new Response('{}', { status: 400 }) : new Response(JSON.stringify(tokenResponse('B')));
+    if (url.endsWith('/models')) return new Response(JSON.stringify(catalog));
+    throw new Error(`Unexpected URL: ${url}`);
+  }, verifyIdToken: async () => ({ subject: 'account-B', email: 'b@example.test' }) });
   const redirect = 'http://127.0.0.1:33333/auth/callback';
   const another = new URL(await auth.begin(redirect, true));
   assert.equal(another.searchParams.get('client_id'), 'dynamic_agent_client');
@@ -79,16 +84,26 @@ test('another-account retry reuses its issued ID while returning sign-in keeps t
   const returning = new URL(await auth.begin(redirect));
   assert.equal(returning.searchParams.get('client_id'), 'oaiapp_A');
   assert.equal(returning.searchParams.get('login_hint'), 'a@example.test');
-  const denied = new URL(redirect);
-  denied.searchParams.set('error', 'access_denied');
-  denied.searchParams.set('state', returning.searchParams.get('state'));
-  await assert.rejects(auth.callback(denied), /cancelled/);
+  const wrongAccount = new URL(redirect);
+  wrongAccount.searchParams.set('code', 'wrong-account');
+  wrongAccount.searchParams.set('state', returning.searchParams.get('state'));
+  wrongAccount.searchParams.set('client_id', 'oaiapp_A');
+  await assert.rejects(auth.callback(wrongAccount), /different account/);
+  assert.equal((await store.load()).account.clientId, 'oaiapp_A');
 
   const retry = new URL(await auth.begin(redirect, true));
   assert.equal(retry.searchParams.get('client_id'), 'oaiapp_B');
   assert.equal(retry.searchParams.has('agent_name_hint'), false);
   assert.equal(retry.searchParams.has('login_hint'), false);
   assert.equal((await store.load()).account.clientId, 'oaiapp_A');
+  const success = new URL(redirect);
+  success.searchParams.set('code', 'good');
+  success.searchParams.set('state', retry.searchParams.get('state'));
+  success.searchParams.set('client_id', 'oaiapp_B');
+  assert.deepEqual(await auth.callback(success), { signedIn: true, email: 'b@example.test', models: [{ slug: 'test-model', name: 'Test Model' }], model: 'test-model' });
+  assert.equal((await store.load()).account.clientId, 'oaiapp_B');
+  assert.equal((await store.load()).account.subject, 'account-B');
+  assert.equal((await store.load()).pendingClientId, null);
 });
 
 test('sign-out invalidates a pending callback, including an in-flight code exchange', async () => {
