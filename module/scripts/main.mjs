@@ -14,11 +14,15 @@ Hooks.once('ready', () => {
   if (game.system.id !== 'pf2e' || !game.user.isGM) return;
   let app;
   const adapter = new FoundryAdapter(game, { Actor: CONFIG.Actor.documentClass, JournalEntry: CONFIG.JournalEntry.documentClass });
-  const update = () => { app?.capture(); void app?.refresh(); };
+  const update = () => {
+    app?.capture();
+    if (app && connection.chatgpt.signedIn && !app.apiKeyChosen) { app.providerChoice = 'chatgpt'; app.authUrl = ''; }
+    void app?.refresh();
+  };
   const plans = new PlanStore(adapter, () => foundry.utils.randomID(16), update);
   const connection = new BrowserConnection(adapter, plans, () => {
     if (!app) return;
-    app.status = connection.connected ? 'Connected to the local companion. Review pending plans before approval.' : `Companion ${connection.state}.`;
+    app.status = connection.authError || (connection.chatgpt.signedIn ? 'ChatGPT connected. Choose a model and send a request.' : connection.connected ? 'Connected to the local companion. Continue with ChatGPT or use MCP planning.' : `Companion ${connection.state}.`);
     update();
   });
   app = createWindow(adapter, plans, connection);

@@ -4,7 +4,7 @@ import http from 'node:http';
 import { once } from 'node:events';
 import { startCompanion } from '../companion/server.mjs';
 import { runProvider } from '../companion/provider.mjs';
-import { config, fakeGM } from './transport-fixture.mjs';
+import { config, fakeGM, memoryCredentialStore } from './transport-fixture.mjs';
 import { npcRequest, actorUUID } from './fake-foundry.mjs';
 
 const key = 'not-a-real-provider-secret-DO-NOT-SEND-TO-BROWSER';
@@ -35,11 +35,11 @@ test('actual Responses loop preserves reasoning and call outputs, proposes, and 
     [functionCall('4', 'propose_creation', { request: npcRequest })],
     [message(`Review the plan in Foundry. ${key}`)]
   ][turn] } }));
-  const server = await startCompanion({ ...config, apiKey: key, model: 'fake-responses-model', endpoint: provider.endpoint });
+  const server = await startCompanion({ ...config, apiKey: key, model: 'fake-responses-model', endpoint: provider.endpoint }, { credentialStore: memoryCredentialStore() });
   t.after(() => server.close());
   const gm = await fakeGM(server.port);
   const resultMessage = new Promise(resolve => gm.ws.on('message', raw => { const value = JSON.parse(raw.toString()); if (value.type === 'prompt_result') resolve(value); }));
-  gm.ws.send(JSON.stringify({ type: 'prompt', id: 'prompt1', prompt: 'Propose a scout NPC.', party: { level: 4, size: 4, threat: 'moderate' } }));
+  gm.ws.send(JSON.stringify({ type: 'prompt', id: 'prompt1', prompt: 'Propose a scout NPC.', party: { level: 4, size: 4, threat: 'moderate' }, provider: 'api_key' }));
   const result = await resultMessage;
   assert.equal(result.result.planIds.length, 1);
   assert.equal(result.result.text.includes(key), false);

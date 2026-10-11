@@ -21,7 +21,7 @@ A compendium is Foundry's library of creatures or items. Version 0.1.1 uses thos
 
 The guide explains what to download, where to paste each command, what to expect, and how to recover when a step fails. You do not need Git or GitHub CLI.
 
-This is a private development alpha. Your GitHub account needs repository access. There is no public release download, automatic installer, or Foundry package-directory installation yet.
+This is a development alpha. There is no release download, automatic installer, or Foundry package-directory installation yet.
 
 The first target is Foundry 14 with PF2e 8.5.1, running on the same Windows PC as the assistant. Use a disposable test world. Live Foundry rendering, real imports, and paid AI requests remain unverified. Hosted Foundry and HTTPS connections are not supported by this alpha.
 
@@ -38,19 +38,19 @@ flowchart LR
     E --> F["Foundry creates the NPC, shop, or roster"]
 ```
 
-The beginner guide uses an OpenAI API key for the button inside Foundry. If you already use local Codex or Claude tools, the [advanced MCP instructions](docs/technical-reference.md#configure-a-local-mcp-client) describe that option.
+The beginner guide uses **Continue with ChatGPT** inside Foundry. It does not require an API key. An OpenAI API key remains optional, and the [advanced MCP instructions](docs/technical-reference.md#configure-a-local-mcp-client) cover local Codex or Claude tools.
 
 ## Cost and privacy
 
 Tablewright has no module charge. Optional donations are the intended funding approach, but a donation page has not been set up.
 
-You need your own Foundry license and AI access. The in-window OpenAI option can incur API charges. [OpenAI bills API usage separately from a ChatGPT subscription](https://help.openai.com/en/articles/9039756-managing-billing-settings-on-the-chatgpt-web-and-api-platform). The MCP option uses your AI client's own access and limits.
+You need your own Foundry license and AI access. Eligible ChatGPT accounts can use their plan through [Sign in with ChatGPT](https://developers.openai.com/siwc/token-sharing-open-source), subject to shared plan limits and any credits the account holder enables. The optional API-key path uses separate [API billing](https://help.openai.com/en/articles/9039756-managing-billing-settings-on-the-chatgpt-web-and-api-platform). The MCP option uses your AI client's own access and limits.
 
-Your provider key stays in the companion's local settings. Your prompt and limited world and compendium metadata go to the configured AI provider when you use the model button. Full source statistics, source artwork, and existing journal contents stay in Foundry. Read the [data-flow details](docs/technical-reference.md#understand-the-data-flow) before using private campaign material.
+ChatGPT credentials are protected locally by Windows for your user account. An optional API key stays in the companion's local settings. Your prompt and limited world and compendium metadata go to OpenAI when you send a model request. Full source statistics, source artwork, and existing journal contents stay in Foundry. Read the [data-flow details](docs/technical-reference.md#understand-the-data-flow) before using private campaign material.
 
 ## Need help?
 
-Start with [installation troubleshooting](docs/install.md#if-something-goes-wrong). If you are still stuck, use the [help request checklist](docs/install.md#ask-for-help) to report the failing step. Never include your API key, pairing token, or settings file.
+Start with [installation troubleshooting](docs/install.md#if-something-goes-wrong). If you are still stuck, use the [help request checklist](docs/install.md#ask-for-help) to report the failing step. Never include credentials, pairing tokens, or settings files.
 
 ## For technical users and contributors
 
@@ -59,4 +59,4 @@ Start with [installation troubleshooting](docs/install.md#if-something-goes-wron
 - [Architecture](docs/architecture.md).
 - [Source credits and license notices](docs/provenance.md).
 
-The code uses the MIT license. The repository remains private during development. Public distribution, a Foundry listing, and the remaining live checks are still pending.
+The code uses the MIT license. A release download, a Foundry listing, and the remaining live checks are still pending.

@@ -23,7 +23,7 @@ Copy-Item -LiteralPath '.env.example' -Destination '.env'
 npm run token
 ```
 
-Copy the generated token line into `ASSISTANT_TOKEN` in `.env`. Keep that token separate from the provider key. Configure the exact HTTP origin shown in the Foundry browser address bar. Include the port and omit a trailing slash or world path.
+Copy the generated token line into `ASSISTANT_TOKEN` in `.env`. Keep it separate from any optional provider key. Configure the exact HTTP origin shown in the Foundry browser address bar. Include the port and omit a trailing slash or world path.
 
 ```dotenv
 ASSISTANT_TOKEN=<generated-companion-token>
@@ -34,9 +34,9 @@ OPENAI_MODEL=
 OPENAI_RESPONSES_URL=https://api.openai.com/v1/responses
 ```
 
-Leave the provider fields blank for MCP planning. To use the window's model button, set your key and an explicit API model ID available to that key. The companion uses the OpenAI Responses API. It preserves reasoning output and matching `function_call_output` items between tool calls. The endpoint must use HTTPS. See the [official function calling guide](https://developers.openai.com/api/docs/guides/function-calling).
+Leave the provider fields blank for ChatGPT sign-in or MCP planning. After pairing, click **Continue with ChatGPT** in Foundry. The companion completes the direct local OAuth flow and uses the signed-in account's listed models. This route sends `store: false`, `stream: true` requests to the public OpenAI Responses API. To use separate API billing instead, set your key and an explicit API model ID available to that key. The API-key path keeps its configurable HTTPS endpoint and existing function-call loop. See the [official Sign in with ChatGPT guide](https://developers.openai.com/siwc/token-sharing-open-source) and [function calling guide](https://developers.openai.com/api/docs/guides/function-calling).
 
-The `.env` file is ignored by Git. The provider key stays in the companion process and its outbound provider Authorization header. Do not paste it into Foundry, MCP settings, a prompt, or chat. The pairing token is a separate secret that the browser sends as its first WebSocket message.
+The `.env` file is ignored by Git. Optional API keys stay in the companion process and its outbound provider Authorization header. ChatGPT access, refresh, and ID tokens are protected with Windows DPAPI in `%LOCALAPPDATA%\Tablewright Assistant\chatgpt-credentials.dpapi`. Only one companion process can hold that credential store at a time. This alpha saves one ChatGPT account per Windows user. Sign out before choosing **Use another ChatGPT account**; that replaces the saved account registration. If that account's first code exchange fails, choose **Use another ChatGPT account** again to retry its issued registration. **Continue with ChatGPT** still returns to the previously saved account. Do not paste any credential into Foundry, MCP settings, a prompt, or chat. The pairing token is a separate secret that the browser sends as its first WebSocket message. Each Foundry prompt names its model access path explicitly. ChatGPT plan usage is selected by default after sign-in; choosing **API key (separate API billing)** is a deliberate change.
 
 ## Install the module
 
@@ -58,7 +58,7 @@ Replace the destination if your data path differs. If that module directory alre
 
 Start Foundry and enable **Tablewright Assistant** in a disposable PF2e world. In **Configure Settings**, optionally enter comma-separated exact module pack IDs in **Additional permitted module compendiums**. PF2e system Actor and Item packs are permitted by default. World packs and Macro, Journal, and other document types are rejected.
 
-Enabling a pack does not establish rights to share its metadata with a model. This is a private local alpha. Public release, official Foundry package listing, and content-rights review remain pending under [Foundry's AI policy](https://foundryvtt.com/article/ai-policy/).
+Enabling a pack does not establish rights to share its metadata with a model. This is a local alpha. A release download, official Foundry package listing, and content-rights review remain pending under [Foundry's AI policy](https://foundryvtt.com/article/ai-policy/).
 
 ## Connect the GM browser
 
@@ -75,7 +75,7 @@ npm start reads the configured .env file. To use only process environment variab
 3. Enter `ws://127.0.0.1:33333/browser` and the pairing token.
 4. Click **Connect**.
 5. Enter the party level, size, and threat explicitly. Current window requests require those fields for NPCs and shops as well as encounters.
-6. Click **Send to configured model** when a provider is configured, or use an MCP client to propose a plan.
+6. Click **Continue with ChatGPT**, complete sign-in in your browser, and select a listed model. Then click **Send to model**. You can also use an MCP client to propose a plan.
 7. Review the canonical source UUIDs, quantities, levels, XP, and every planned document.
 8. Click **Approve creations** or **Reject plan**.
 
@@ -83,7 +83,7 @@ npm start reads the configured .env file. To use only process environment variab
 
 The companion accepts one authenticated GM browser and world at a time. A second connection is rejected. To select another browser or world, disconnect the first one. Closing the assistant window keeps its paired connection and session plans. Browser refresh discards session plans.
 
-HTTPS Foundry is rejected by this alpha. A localhost plain WebSocket has not been verified with HTTPS or hosted Foundry. Remote ChatGPT web connectors and secure deployment need a separately verified transport. Native Claude API requests are deferred.
+HTTPS Foundry is rejected by this alpha. A localhost plain WebSocket has not been verified with HTTPS or hosted Foundry. ChatGPT sign-in uses an HTTP loopback callback on `127.0.0.1` with a checked state, nonce, and PKCE verifier; it does not expose account tokens to Foundry. Remote ChatGPT web connectors and secure deployment need a separately verified transport. Native Claude API requests are deferred.
 
 ## Configure a local MCP client
 
@@ -163,7 +163,7 @@ The browser keeps raw selected source snapshots and normalized document data for
 
 No source descriptions, stat blocks, art, assets, raw documents, existing journal contents, or full world export go to MCP or the model. Read/proposal MCP traffic stays on the companion machine. Clicking the model button sends the prompt and tool metadata to the configured provider endpoint. Provider output returns as escaped text and browser-validated proposals. A model cannot approve them.
 
-The companion binds to `127.0.0.1`. HTTP proxy requests require the exact `127.0.0.1:PORT` Host, no Origin header, and Bearer token. Browser WebSockets require the exact configured Foundry Origin, the same Host, the `/browser` path without a query, and first-message token authentication.
+The companion binds to `127.0.0.1`. HTTP proxy requests require the exact `127.0.0.1:PORT` Host, no Origin header, and Bearer token. The separate `/auth/callback` route accepts only the matching OAuth state and authorization result. Browser WebSockets require the exact configured Foundry Origin, the same Host, the `/browser` path without a query, and first-message token authentication.
 
 ## Verify before using a campaign
 

@@ -13,10 +13,10 @@ You need these items.
 - A Windows PC that runs both Foundry and the assistant.
 - Foundry 14 and Pathfinder Second Edition. PF2e 8.5.1 is the first target.
 - A disposable PF2e world where mistakes will not affect a game.
-- A GitHub account with access to the private [Tablewright repository](https://github.com/tom-l-mot/tablewright-assistant).
+- Access to the public [Tablewright repository](https://github.com/tom-l-mot/tablewright-assistant).
 - Internet access to download files and contact your AI provider.
 
-This walkthrough uses OpenAI for the button inside Foundry. You need your own API key and API billing access. [API charges are separate from your ChatGPT subscription](https://help.openai.com/en/articles/9039756-managing-billing-settings-on-the-chatgpt-web-and-api-platform). Read the provider's costs before sending a request.
+This walkthrough uses **Continue with ChatGPT** inside Foundry. You need an eligible ChatGPT account and must authorize this app to use your plan. No developer account or API key is required. Requests share your [ChatGPT plan usage and app limits](https://chatgpt.com/settings/usage); credits apply only if you enable them. An API key with separate billing remains an optional advanced setup.
 
 If you already use local Codex or Claude, you can use the [advanced MCP setup](technical-reference.md#configure-a-local-mcp-client) instead. That option uses your AI client's own access. Complete the guide through connecting Foundry, leave the two provider fields empty, then use that page to submit a proposal.
 
@@ -28,7 +28,7 @@ You use these windows during setup.
 
 | Window | What you do there |
 | --- | --- |
-| Web browser | Download files, manage your API key, and later open Foundry. |
+| Web browser | Download files, open Foundry, and sign in to ChatGPT. |
 | File Explorer | Extract ZIP files and copy the module into Foundry's data folder. |
 | PowerShell | Paste commands that prepare and start the companion. |
 | Notepad | Fill in the companion's settings file. |
@@ -61,7 +61,7 @@ When this guide shows a command, copy the text inside the box. Do not copy the w
 This is a first-install guide. If you already have a `Tablewright-Assistant` folder or an installed module, preserve it and follow [existing installations](#if-you-already-installed-an-earlier-version) before replacing files.
 
 1. Sign in to GitHub in your browser.
-2. Open the [Tablewright repository](https://github.com/tom-l-mot/tablewright-assistant). If GitHub shows a 404 page, your signed-in account may lack access to this private repository.
+2. Open the [Tablewright repository](https://github.com/tom-l-mot/tablewright-assistant). If GitHub shows a 404 page, check the address or try again later.
 3. Above the file list, select **Code**.
 4. Select **Download ZIP**.
 
@@ -119,7 +119,7 @@ GitHub's Download ZIP contains the project's source files. It is different from 
 
 **Checkpoint.** The install command finished without an error. The token command printed a long line of letters, numbers, underscores, or hyphens.
 
-The pairing token connects Foundry to your companion. Your API key connects the companion to OpenAI. They are different secrets.
+The pairing token connects Foundry to your companion. ChatGPT sign-in happens later inside the assistant window.
 
 ## 4. Fill in the settings
 
@@ -141,26 +141,22 @@ Do not share the settings file or screenshots of its real values.
 
    The address must match the browser's protocol, host, and port exactly. If Foundry uses port 30001, use 30001 here too. Do not add a world path or a trailing slash. `localhost` and `127.0.0.1` count as different addresses.
 
-5. Open the [OpenAI API keys page](https://platform.openai.com/api-keys) in your browser. Sign in and create a key for your own project. This page requires an account, and its controls may change.
-6. Paste that key immediately after `OPENAI_API_KEY=` in Notepad.
-7. Set `OPENAI_MODEL=` to an exact API model ID your account can use. Use a model that supports both the Responses API and function calling. Check the [official model catalog](https://developers.openai.com/api/docs/models) and your account's available models. A ChatGPT display name is not an API model ID.
-8. Leave `OPENAI_RESPONSES_URL=https://api.openai.com/v1/responses` unchanged.
-9. Save the file with **Ctrl+S**, then close Notepad.
+5. Leave `OPENAI_API_KEY=` and `OPENAI_MODEL=` empty. The ChatGPT sign-in flow will select an available model later.
+6. Leave `OPENAI_RESPONSES_URL=https://api.openai.com/v1/responses` unchanged.
+7. Save the file with **Ctrl+S**, then close Notepad.
 
-**Checkpoint.** Your file has the following six settings, with your real values replacing the three examples below.
+**Checkpoint.** Your file has the following six settings, with your real pairing token replacing the example below.
 
 ```dotenv
 ASSISTANT_TOKEN=YOUR_GENERATED_PAIRING_TOKEN
 ASSISTANT_PORT=33333
 FOUNDRY_ORIGIN=http://localhost:30000
-OPENAI_API_KEY=YOUR_OPENAI_API_KEY
-OPENAI_MODEL=YOUR_AVAILABLE_API_MODEL_ID
+OPENAI_API_KEY=
+OPENAI_MODEL=
 OPENAI_RESPONSES_URL=https://api.openai.com/v1/responses
 ```
 
-Do not paste this example over a completed file. The example values are not usable credentials. Keep your API key in this file, not in Foundry or chat.
-
-If you chose MCP, leave `OPENAI_API_KEY=` and `OPENAI_MODEL=` empty. Keep the other settings.
+Do not paste this example over a completed file. The example pairing token is not usable. If you later choose the optional API-key path, follow [advanced setup](technical-reference.md#prepare-the-companion) and keep the key in `.env`, never in Foundry or chat.
 
 ## 5. Put the module into Foundry
 
@@ -226,16 +222,23 @@ Keep that window open. The companion stops when you close it or press **Ctrl+C**
 
    This is the companion's address. It differs from Foundry's browser address on port 30000.
 
-7. Paste the pairing token into **Pairing token**. Use the `ASSISTANT_TOKEN` value, not the API key.
+7. Paste the pairing token into **Pairing token**. Use the `ASSISTANT_TOKEN` value.
 8. Click **Connect**.
 
-**Checkpoint.** The expected status is `Connected. MCP can propose plans. Review and approve them here.`
+**Checkpoint.** The assistant reports that it is connected to the local companion.
+
+9. Click **Continue with ChatGPT**, then click **Open ChatGPT sign-in**.
+10. In the opened browser tab, choose your ChatGPT account and approve plan usage for Tablewright Assistant. Return to Foundry when the tab says ChatGPT connected.
+11. Confirm that the window shows your ChatGPT account and a model in the model list. You can choose another listed model.
+12. Under **Model access and billing**, leave **ChatGPT plan (shared limits)** selected. **API key (separate API billing)** appears only when you configure that optional path; selecting it explicitly sends requests through the API key.
+
+ChatGPT credentials stay in Windows-protected local storage for your account. The Foundry browser receives only the sign-in link, account display name, model list, and status. You can select **Sign out of ChatGPT** in the window to end the renewable session.
 
 Only one GM browser can connect at a time. `@assistant` opens the window. It does not send an AI request by itself.
 
 ## 7. Create your first NPC
 
-The next action contacts your configured AI provider and may incur API charges.
+The next action uses the model access and billing path shown in the assistant window. With **ChatGPT plan** selected, it counts toward shared plan limits. Check [ChatGPT usage settings](https://chatgpt.com/settings/usage) to manage limits and optional credits.
 
 1. Enter `1` in **Party level**.
 2. Enter `4` in **Party size**.
@@ -249,9 +252,9 @@ The next action contacts your configured AI provider and may incur API charges.
    Find an installed goblin NPC. Propose one copy named Rook. Give Rook a short background as a suspicious sewer guide. Keep the source creature's statistics.
    ```
 
-5. Click **Send to configured model**.
+5. Click **Send to model**.
 
-   If you chose MCP, send the request through your configured AI client instead. The Foundry button stays disabled when no API provider is configured.
+   If you chose MCP, send the request through your configured AI client instead. The Foundry button stays disabled until ChatGPT is connected or an optional API provider is configured.
 
 6. Wait for a proposal under **Review and approval**. The AI may choose different goblin entries on different attempts.
 
@@ -305,7 +308,7 @@ For another Tablewright version, do not overwrite a running installation or assu
 
 | What you see | What to check |
 | --- | --- |
-| GitHub shows 404 | Sign in with the account that has access to this private repository. There is no public download yet. |
+| GitHub shows 404 | Check the repository address and try again later. There is no release download yet. |
 | PowerShell cannot find node or npm.cmd | Finish installing Node.js, then close and reopen PowerShell. |
 | Set-Location cannot find the folder | Open `%USERPROFILE%\Tablewright-Assistant` in File Explorer. Confirm that `package.json` is directly inside. |
 | The library install fails | Check internet access and use a local folder outside cloud sync. Keep the error text for a help request. |
@@ -315,7 +318,7 @@ For another Tablewright version, do not overwrite a running installation or assu
 | Port 33333 is already in use | Stop an earlier companion with Ctrl+C. Do not start another copy. |
 | Connect fails | Keep the companion running. Check the token and exact Foundry browser address. Disconnect another GM browser if one is paired. |
 | The Send button is disabled | Connect first. For OpenAI, set both provider fields and restart the companion. A disabled button is expected for MCP-only use. |
-| An AI request reports an account or model error | Check API billing, key permissions, and the model ID with your provider. A ChatGPT subscription does not provide API credits. |
+| ChatGPT sign-in or model selection fails | Return to Foundry and select **Continue with ChatGPT** or **Reconnect ChatGPT**. If model loading failed, select **Retry loading models**. Confirm plan usage is allowed for this app in [ChatGPT usage settings](https://chatgpt.com/settings/usage). If using the optional API-key path, check API billing, key permissions, and model ID. |
 | No creature is found | Try a creature name present in your installed PF2e compendiums. Other modules' packs need permission in Tablewright's settings. |
 | An import stops partway | Keep the browser open. Read the error. After fixing the cause, use **Retry missing creations**. Completed imports remain. Refreshing loses the plan and prevents that retry. |
 
@@ -331,7 +334,7 @@ Include these details in a help request to the maintainer.
 4. Whether you used the in-window OpenAI button or an MCP client.
 5. A cropped screenshot of the failing screen, with private information hidden.
 
-Never attach `.env`. Hide API keys, pairing tokens, private campaign names, and player information. Do not crop away the error itself.
+Never attach `.env` or local credential files. Hide API keys, pairing tokens, private campaign names, and player information. Do not crop away the error itself.
 
 ## About the screenshots
 

@@ -9,6 +9,11 @@ export const origin = 'http://localhost:30000';
 export const config = { token, origin, port: 0, apiKey: '', model: '', endpoint: 'https://api.openai.com/v1/responses' };
 export const auth = { type: 'auth', token, worldId: 'test-world', userId: 'gm', systemId: 'pf2e' };
 
+export function memoryCredentialStore() {
+  let value = null;
+  return { async load() { return structuredClone(value); }, async save(record) { value = structuredClone(record); } };
+}
+
 export async function connectBrowser(port, message = auth) {
   const ws = new WebSocket(`ws://127.0.0.1:${port}/browser`, { origin });
   ws.on('error', () => {});
