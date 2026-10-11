@@ -5,6 +5,7 @@ import { once } from 'node:events';
 import { startCompanion } from '../companion/server.mjs';
 import { runProvider } from '../companion/provider.mjs';
 import { safeError } from '../module/lib/validation.mjs';
+import { MAX_FRAME } from '../module/lib/protocol.mjs';
 import { config, fakeGM, memoryCredentialStore } from './transport-fixture.mjs';
 import { npcRequest, actorUUID } from './fake-foundry.mjs';
 
@@ -116,6 +117,69 @@ test('provider cancellation stops a wait for an outstanding Foundry tool', { tim
 
 const chatgptConfig = { chatgptToken: 'oauth-secret', apiKey: 'api-secret', model: 'gpt-5.6-luna', endpoint: 'https://api.openai.com/v1/responses' };
 const stream = value => `data: ${JSON.stringify(value)}\n\n`;
+
+test('lean completed streams return finalized messages and preserve ordered reasoning and tools', async () => {
+  const reasoning = { type: 'reasoning', id: 'rs_final', summary: [], encrypted_content: 'final-encrypted-reasoning' };
+  const call = functionCall('lean', 'world_context', {});
+  for (const terminalOutput of [[], [{ ...reasoning, encrypted_content: '' }, call]]) {
+    const bodies = [];
+    const routed = [];
+    const result = await runProvider(chatgptConfig, 'hello', null, async name => { routed.push(name); return { world: 'test' }; }, { fetchImpl: async (_url, options) => {
+      bodies.push(JSON.parse(options.body));
+      return new Response(bodies.length === 1
+        ? stream({ type: 'response.output_item.done', output_index: 1, item: call }) + stream({ type: 'response.output_item.done', output_index: 0, item: reasoning }) + stream({ type: 'response.completed', response: { status: 'completed', output: terminalOutput } })
+        : stream({ type: 'response.output_item.done', output_index: 0, item: message('TABLEWRIGHT_OK') }) + stream({ type: 'response.completed', response: { status: 'completed', output: [] } }));
+    } });
+    assert.equal(result.text, 'TABLEWRIGHT_OK');
+    assert.deepEqual(routed, ['world_context']);
+    assert.equal(bodies.length, 2);
+    assert.deepEqual(bodies[1].input.slice(2, 4), [reasoning, call]);
+    assert.deepEqual(bodies[1].input[4], { type: 'function_call_output', call_id: call.call_id, output: JSON.stringify({ world: 'test' }) });
+  }
+});
+
+test('finalized stream tools require completion and never run after late errors or incomplete events', async () => {
+  const call = functionCall('guard', 'world_context', {});
+  const done = stream({ type: 'response.output_item.done', output_index: 0, item: call });
+  const completed = stream({ type: 'response.completed', response: { status: 'completed', output: [call] } });
+  const cases = [
+    [done, 'PROVIDER'],
+    [done + completed + stream({ type: 'response.failed', response: { error: { code: 'subscription_sharing_usage_limit_exceeded' } } }), 'subscription_sharing_usage_limit_exceeded'],
+    [done + completed + stream({ type: 'error', code: 'subscription_sharing_usage_unavailable' }), 'subscription_sharing_usage_unavailable'],
+    [done + completed + stream({ type: 'response.incomplete', response: {} }), 'PROVIDER_INCOMPLETE']
+  ];
+  for (const [body, code] of cases) {
+    let routed = 0;
+    await assert.rejects(runProvider(chatgptConfig, 'hello', null, async () => { routed++; }, { fetchImpl: async () => new Response(body) }), error => error.code === code);
+    assert.equal(routed, 0);
+  }
+});
+
+test('finalized stream output rejects malformed indexes, holes, items, and excessive output', async () => {
+  const item = message('Valid item');
+  const done = (output_index, value = item) => stream({ type: 'response.output_item.done', output_index, item: value });
+  const complete = output => stream({ type: 'response.completed', response: { status: 'completed', output } });
+  const bodies = [
+    ...[-1, 32, 0.5, '0', null, undefined].map(index => done(index) + complete([])),
+    ...[null, [], 'invalid'].map(value => done(0, value) + complete([])),
+    done(1) + complete([]),
+    done(2) + complete([item]),
+    complete(Array.from({ length: 33 }, () => item)),
+    Array.from({ length: 33 }, (_, index) => done(index)).join('') + complete([])
+  ];
+  for (const body of bodies) {
+    let routed = 0;
+    await assert.rejects(runProvider(chatgptConfig, 'hello', null, async () => { routed++; }, { fetchImpl: async () => new Response(body) }), error => ['PROVIDER', 'PROVIDER_LIMIT'].includes(error.code));
+    assert.equal(routed, 0);
+  }
+});
+
+test('finalized stream collection retains the total stream byte limit', async () => {
+  let routed = 0;
+  const body = stream({ type: 'response.output_item.done', output_index: 0, item: { type: 'reasoning', encrypted_content: 'x'.repeat(MAX_FRAME * 4) } });
+  await assert.rejects(runProvider(chatgptConfig, 'hello', null, async () => { routed++; }, { fetchImpl: async () => new Response(body) }), error => error.code === 'PROVIDER_LIMIT');
+  assert.equal(routed, 0);
+});
 
 test('Luna sends High standard on every public Responses turn without API fallback', async () => {
   const bodies = [];
