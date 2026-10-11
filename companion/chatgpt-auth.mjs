@@ -54,7 +54,7 @@ export class ChatGPTAuth {
   async begin(redirectUri, newAccount = false) {
     await this.init();
     if (!this.store) fail('CHATGPT_STORE', 'ChatGPT sign-in currently requires Windows local credential storage.');
-    if (this.pending && Date.now() - this.pending.startedAt < 300000) fail('BUSY', 'A ChatGPT sign-in is already in progress.');
+    if (this.completing || (this.pending && Date.now() - this.pending.startedAt < 300000)) fail('BUSY', 'A ChatGPT sign-in is already in progress.');
     const state = random();
     const nonce = random();
     const verifier = random();
@@ -109,7 +109,10 @@ export class ChatGPTAuth {
       await this.#revoke(tokens.refreshToken, clientId);
       fail('CHATGPT_AUTH', 'This ChatGPT sign-in was cancelled.');
     }
-    if (pending.clientId && !pending.newAccount && this.record.account && identity.subject !== this.record.account.subject) fail('CHATGPT_AUTH', 'ChatGPT returned a different account.');
+    if (pending.clientId && !pending.newAccount && this.record.account && identity.subject !== this.record.account.subject) {
+      await this.#revoke(tokens.refreshToken, clientId);
+      fail('CHATGPT_AUTH', 'ChatGPT returned a different account.');
+    }
     const candidate = { clientId, ...identity, ...tokens, models: [], model: '' };
     this.record = { ...this.record, account: candidate, pendingClientId: null };
     await this.store.save(this.record);

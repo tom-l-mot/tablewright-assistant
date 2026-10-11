@@ -66,8 +66,10 @@ test('another-account retry reuses its issued ID while returning sign-in keeps t
   const store = memoryCredentialStore();
   await store.save({ hostId: 'urn:uuid:00000000-0000-0000-0000-000000000001', account: { clientId: 'oaiapp_A', subject: 'account-A', email: 'a@example.test', models: [], model: '' } });
   let exchanges = 0;
-  const auth = new ChatGPTAuth({ store, fetchImpl: async url => {
+  const revocations = [];
+  const auth = new ChatGPTAuth({ store, fetchImpl: async (url, options) => {
     if (url.endsWith('/oauth/token')) return ++exchanges === 1 ? new Response('{}', { status: 400 }) : new Response(JSON.stringify(tokenResponse('B')));
+    if (url.endsWith('/oauth/revoke')) { revocations.push(Object.fromEntries(new URLSearchParams(options.body))); return new Response(); }
     if (url.endsWith('/models')) return new Response(JSON.stringify(catalog));
     throw new Error(`Unexpected URL: ${url}`);
   }, verifyIdToken: async () => ({ subject: 'account-B', email: 'b@example.test' }) });
@@ -89,6 +91,7 @@ test('another-account retry reuses its issued ID while returning sign-in keeps t
   wrongAccount.searchParams.set('state', returning.searchParams.get('state'));
   wrongAccount.searchParams.set('client_id', 'oaiapp_A');
   await assert.rejects(auth.callback(wrongAccount), /different account/);
+  assert.deepEqual(revocations, [{ token: 'refresh-B', token_type_hint: 'refresh_token', client_id: 'oaiapp_A' }]);
   assert.equal((await store.load()).account.clientId, 'oaiapp_A');
 
   const retry = new URL(await auth.begin(redirect, true));
@@ -131,6 +134,7 @@ test('sign-out invalidates a pending callback, including an in-flight code excha
   callback.searchParams.set('client_id', 'oaiapp_issued');
   const completion = auth.callback(callback);
   await started;
+  await assert.rejects(auth.begin(redirect, true), /already in progress/);
   const signingOut = auth.signOut();
   finishExchange();
   await assert.rejects(completion, /cancelled/);
