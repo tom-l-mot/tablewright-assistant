@@ -6,10 +6,11 @@ Normal installation uses the Windows app and Foundry's manifest installer. Start
 
 Use a physical-disk checkout and Node.js 22 or newer. Dependency extraction previously failed in a Google Drive checkout. Packaging currently uses Windows PowerShell.
 
-Run these commands in the repository root. The dependency install downloads Electron; review the repository and lockfile first.
+Run these commands in the repository root. Review the repository and lockfile first. Electron 44 does not download its runtime during npm ci; the explicit install-electron command downloads it before launch.
 
 ```powershell
 npm.cmd ci
+npx --no-install install-electron
 npm.cmd run desktop
 ```
 
@@ -24,7 +25,7 @@ npm.cmd run build:windows
 
 The expected files are `dist/tablewright-assistant-0.2.0-alpha.1.zip` and `dist/windows/Tablewright-Connector-0.2.0-alpha.1-win-x64.exe`. The Windows build is unsigned. These commands build locally and do not publish.
 
-The manifest in `module/module.json` points to the planned GitHub prerelease asset and the raw manifest on branch `codex/tablewright-desktop`. Publication, fresh-download verification, and real Foundry install/update checks are separate gates. The manifest permits Foundry 13 through 14 but does not set `compatibility.verified`.
+The manifest in `module/module.json` points to the GitHub prerelease asset and the raw manifest on branch `codex/tablewright-desktop`. Release notes record the reviewed commit, checksums, packaged-source comparison, and fresh-download results. Local build success is not publication evidence. Real Foundry install/update checks remain separate. The manifest permits Foundry 13 through 14 but does not set `compatibility.verified`.
 
 ## Desktop pairing and account storage
 
@@ -46,7 +47,7 @@ The account's live model catalog is authoritative. The default is `gpt-5.6-luna`
 
 Account status distinguishes signed out, disabled plan usage, ineligibility, usage limits, unavailable models, and ready access. It is not enough for OAuth sign-in alone to succeed. Foundry offers Enable ChatGPT plan usage, Cancel sign-in, Check access again, and Sign out of ChatGPT as appropriate.
 
-Requests go to the public Responses API with `store: false` and streaming enabled for the ChatGPT path. There is no hidden private endpoint or automatic API-key fallback. Real authorization and an account-funded response for this build remain verification gates.
+Requests go to the public Responses API with `store: false` and streaming enabled for the ChatGPT path. There is no hidden private endpoint or automatic API-key fallback. The desktop opens authorization through the native external-browser launcher and does not return a sign-in URL to the normal Foundry UI. The optional URL response remains for developer compatibility only. Real authorization and an account-funded response for this build remain verification gates.
 
 ## Advanced developer companion
 
@@ -150,6 +151,8 @@ npm.cmd run package
 ```
 
 These use real local server/SDK processes and fake Foundry/provider fixtures. They do not establish real PF2e imports, real DOM approval events, or account eligibility. Read the [evidence table and live checklist](verification.md).
+
+The runtime dependency audit reported zero vulnerabilities. The full audit retains eight moderate build-only findings rooted in sprintf-js GHSA-hp3w-g68c-fv3c. No patched sprintf-js release was available in the checked registry, and no forced Electron builder downgrade was applied. See the verification table for the dependency boundary.
 
 Screenshots must come from the actual documented build. Captures of the installer, native pairing, account state, Foundry preview, and created PF2e sheet remain pending. Do not use generated images as evidence.
 

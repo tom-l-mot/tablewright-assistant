@@ -2,7 +2,7 @@
 
 The goal is to connect Tablewright to your GM browser, ask for a proposal, and approve the result inside Foundry.
 
-This guide describes **0.2.0-alpha.1**. Publication and download verification are pending. The installer is an unsigned Windows x64 test build. The complete live installation and Foundry workflow have not passed yet. Testing in the Leng world is deferred until that world is ready.
+This guide describes **0.2.0-alpha.1**, an unsigned Windows x64 test build. A silent per-user installer check passed, but the human installer screens and complete Foundry workflow have not been verified. Testing in a disposable world is deferred until that world is ready. The release notes identify the reviewed commit, checksums, and download-verification results for the files offered there.
 
 ## Before you start
 
@@ -17,7 +17,7 @@ The connector supports pairing with exact HTTP or HTTPS Foundry addresses. The H
 ## 1. Install the desktop app
 
 1. Open the [v0.2.0-alpha.1 release page](https://github.com/tom-l-mot/tablewright-assistant/releases/tag/v0.2.0-alpha.1).
-2. Under its assets, find **Tablewright-Connector-0.2.0-alpha.1-win-x64.exe**. If the release or file is absent, stop here. Publication is still pending; the repository's source ZIP is not the installer.
+2. Under its assets, find **Tablewright-Connector-0.2.0-alpha.1-win-x64.exe**. If the release or file is absent, stop here. The repository's source ZIP is not the installer.
 3. Download and open that file. This build is unsigned, so Windows may show an unknown-publisher warning. Check the repository and filename before deciding whether to run this test build. Do not disable Windows protection globally.
 4. Follow the installer for your Windows user account.
 5. Open **Tablewright Connector** from the Start menu or desktop shortcut.
@@ -42,7 +42,7 @@ This uses Foundry's standard manifest installation. [Foundry module instructions
 5. Click **Install** and wait for Foundry's result.
 6. Confirm **Tablewright Assistant**, version **0.2.0-alpha.1**, appears in the module list.
 
-The manifest currently points to the planned module asset **tablewright-assistant-0.2.0-alpha.1.zip** in the same prerelease. Both URLs must be published and verified before installation can succeed. There is no claimed official-directory listing.
+The manifest points to **tablewright-assistant-0.2.0-alpha.1.zip** in the same prerelease. If Foundry cannot fetch the manifest or archive, stop and check the release notes and download links. There is no claimed official-directory listing.
 
 ## 3. Enable Tablewright in your test world
 
@@ -71,7 +71,7 @@ Only one GM tab connects at a time. To change tabs or worlds, use **Disconnect**
 ## 5. Connect ChatGPT
 
 1. In Foundry, click **Continue with ChatGPT**.
-2. Complete the OpenAI sign-in and authorization in your browser. If the page did not open, use **Open ChatGPT sign-in** when shown.
+2. Complete the OpenAI sign-in and authorization in the browser page opened by Tablewright Connector. If it does not open, check the connector's visible error, cancel the pending sign-in, and retry.
 3. Return to Foundry.
 4. Read **Plan access**. If it is disabled and you want to allow plan usage, click **Enable ChatGPT plan usage** and finish the OpenAI authorization.
 5. Check the **Model** selection. GPT-5.6 Luna is selected by default only when your account lists it. If it is absent, select an available listed model yourself.
@@ -120,7 +120,7 @@ Closing a status dialog does not quit the app. Use the tray menu's **Quit** to s
 
 ## Update or uninstall
 
-Stable installation and update behavior have not yet been verified.
+A silent test installation passed. Interactive installation, updates, and uninstall behavior have not yet been verified.
 
 For a future update, finish pending plans and back up the test world first. Read the release notes, quit the connector, and install the matching desktop version. In Foundry setup, use the module's **Update** control. The manifest URL tracks the development branch, not a guaranteed stable release channel. Do not update a campaign automatically from it.
 
@@ -140,7 +140,7 @@ Disable Tablewright through **Manage Modules** before removing the module from F
 
 | What you see | What to do |
 | --- | --- |
-| Release, installer, or module download is missing | Publication is pending. Do not substitute the source ZIP for the installer. |
+| Release, installer, or module download is missing | Stop and check the release notes or report the missing asset. Do not substitute the source ZIP for the installer. |
 | Pair desktop does not open the app | Start Tablewright Connector, then retry. The installed protocol registration is still a verification item. |
 | Pairing fails or expires | Use Pair desktop again, compare the new code, approve it, and connect within two minutes. |
 | Another session is connected | Disconnect that tab, or choose Reconnect Foundry from the tray menu, then pair the intended tab. |

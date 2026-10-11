@@ -12,11 +12,11 @@ Tablewright has two parts. **Tablewright Assistant** is a Foundry module. **Tabl
 
 ## Try the Windows test prerelease
 
-Version **0.2.0-alpha.1** is an unsigned test build. The intended [v0.2.0-alpha.1 release](https://github.com/tom-l-mot/tablewright-assistant/releases/tag/v0.2.0-alpha.1), installer, and module download are pending publication and download verification. A link here is not evidence that its asset is available yet.
+Version **0.2.0-alpha.1** is an unsigned Windows x64 test build. Get the installer and module from the [v0.2.0-alpha.1 release](https://github.com/tom-l-mot/tablewright-assistant/releases/tag/v0.2.0-alpha.1). If that release or either asset is absent, stop rather than substituting a source ZIP. Check the release notes for the reviewed commit, checksums, and download-verification results.
 
 [Follow the beginner installation guide](docs/install.md). The normal workflow uses an installer and Foundry's **Install Module** screen. You do not need Node.js, a terminal, an API key, or a manually copied pairing token.
 
-Live installation and use in Foundry are still pending. The user has deferred those checks until the Leng test world is ready. The initial target is Foundry 14 with PF2e 8.5.1. The manifest permits Foundry 13 through 14 without claiming verified compatibility. Local HTTP and remote HTTPS connectivity are implemented; actual remote Foundry connectivity remains unverified. See the [evidence table](docs/verification.md).
+Live installation and use in Foundry are still pending. The user has deferred those checks until a disposable test world is ready. The initial target is Foundry 14 with PF2e 8.5.1. The manifest permits Foundry 13 through 14 without claiming verified compatibility. Local HTTP and remote HTTPS connectivity are implemented; actual remote Foundry connectivity remains unverified. See the [evidence table](docs/verification.md).
 
 ## What the assistant creates
 

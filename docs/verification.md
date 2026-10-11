@@ -6,25 +6,29 @@ Version **0.2.0-alpha.1** is a Windows test prerelease. This page separates impl
 
 | Area | Evidence and status |
 | --- | --- |
-| Automated development baseline | The implementation coordinator reported 49 passing checks before final documentation and release verification. Final suite count and immutable revision still need to be recorded. |
+| Automated suite | `npm.cmd test` passed 68/68 for runtime source revision `ae402567`. Later artifact rebuild and packaged-source checks are separate release gates. |
+| Runtime dependency audit | `npm.cmd audit --omit=dev` reported zero vulnerabilities. |
+| Full dependency audit | Eight moderate build-dependency findings remain, rooted in sprintf-js precision denial of service, GHSA-hp3w-g68c-fv3c, and propagated through the Electron build/download dependency chain. The registry's latest sprintf-js version was 1.1.3 with no patched version available. No forced builder downgrade was applied. This is separate from the zero-finding runtime audit. |
 | Earlier transport/UI baseline | At revision 83df9f4, `node --test test/transport.test.mjs test/browser.test.mjs test/window.test.mjs` passed 15/15. This predates the desktop changes and includes the former HTTPS-rejection test. |
 | Source-grounded documentation | Current desktop main, module UI/window/connection, config, store, provider/account policy, package configuration, and manifest inspected. This is not a live installation. |
 | Native tray and status dialog | Implemented. Live packaged-app result pending. |
-| safeStorage persistence and restart | Coordinator-observed synthetic self-check and separate-process restart passed with Electron 44.7.0 and bundled Node 24.21. Real account credential persistence is a separate check. |
-| Single instance and startup setting | Coordinator-observed duplicate-instance rejection and startup register/disable checks passed in that runtime. Actual launch after Windows sign-in remains pending. |
+| Installed executable | Silent per-user installation into `%TEMP%/Tablewright-Install-Verify` passed. The installed executable's self-check passed from its installed working directory with PATH restricted to Windows System32. It reported `packaged: true`, Electron 44.7.0, and bundled Node 24.21. This was not a clean VM or human installer walkthrough. |
+| safeStorage persistence and restart | Synthetic write, rotation, load, and separate-process restart checks passed in the installed runtime. Real account credential persistence is a separate check. |
+| Single instance and startup setting | Duplicate-instance rejection and startup register/disable checks passed in the installed runtime. Actual launch after Windows sign-in remains pending. |
 | Native protocol pairing | Exact site/code confirmation and expiring grant implemented. Installed protocol registration and actual browser-to-app flow remain pending. |
-| Local HTTP browser connection | Implemented. Real Foundry connection remains pending. |
+| Local HTTP browser connection | The actual browser client connected and disconnected in an HTTP fixture using Brave with Chromium 154. A screenshot was captured. This did not test Foundry, the native pairing approval dialog, or remote HTTPS. |
 | Remote HTTPS browser connection | Loopback targetAddressSpace support implemented for the Chrome 154 target. Real remote Foundry, host policy, and permission flow remain pending. |
 | Real ChatGPT authorization | The real OpenAI consent screen was reached with the selected account. The user's Continue action and completed authorization remain pending. Mock OAuth tests do not prove account authorization. |
 | Actual account model catalog | Pending. Luna is selected only if listed; mock catalog tests do not establish live availability. |
 | Real provider inference and account usage | Pending. No actual successful response or billing/allowance result is claimed here. |
-| Installer and module publication | Planned v0.2.0-alpha.1 assets. Publication and fresh-download checks pending. |
-| Installer install/update/uninstall | Initial unsigned Windows x64 installer build passed. Rebuild after final changes and actual install/update/uninstall checks remain pending. Local account-data deletion is not requested on uninstall. |
+| Installer and module publication | Release gates are recorded in the external v0.2.0-alpha.1 release notes, including reviewed source, checksums, packaged-source comparison, and fresh-download results. This document does not record a publication or download pass. |
+| Final installer artifact | The initial unsigned Windows x64 build and silent install passed. Rebuild from the final reviewed runtime and packaged-source comparison remain to be completed before publication. |
+| Installer update/uninstall | Human installer UI, update, and uninstall checks remain pending. Local account-data deletion is not requested on uninstall. |
 | Foundry manifest installation/update | Manifest and release asset paths configured. Live installation and update pending. |
-| ApplicationV2 and real PF2e imports | Pending until the Leng test world is ready, as requested by the user. |
+| ApplicationV2 and real PF2e imports | Pending until a disposable test world is ready, as requested by the user. |
 | Foundry 13 compatibility | Manifest permits it without a verified flag. No live pass claimed. |
 
-The coordinator should replace pending native, browser, account, release, and final-suite entries only with observed results from this build. Keep failed or deferred cases explicit.
+The observed native and browser checks used the existing Windows development machine. Restricting PATH demonstrates that the installed self-check did not need a separately installed Node executable; it does not establish clean-machine compatibility. Release notes are the record for published-artifact verification. Only the checks explicitly marked passed above have passed.
 
 ## What automated checks establish
 
@@ -34,7 +38,7 @@ Checks cover strict Host/Origin/authentication handling, bounded payloads, compe
 
 Approval fixtures set an isTrusted property. They do not exercise a genuine browser click or prove live focus behavior. Mock account responses do not prove ChatGPT Free/Plus/Pro eligibility, usage accounting, or a real model's reasoning support.
 
-The protected-store self-check uses synthetic credentials. It must not be described as a real sign-in. Startup registration is distinct from launching after Windows sign-in. A generic HTTPS page reaching loopback is distinct from the actual remote Foundry host allowing it.
+The protected-store self-check uses synthetic credentials. It must not be described as a real sign-in. Startup registration is distinct from launching after Windows sign-in. The HTTP browser fixture pass does not establish that an actual remote HTTPS Foundry host allows the connection.
 
 ## Repeatable commands
 
@@ -48,11 +52,11 @@ npm.cmd run build:windows
 
 The first command is the automated suite. Package generation inspects the browser module archive through the package tests. The Windows build creates an unsigned installer and never publishes automatically.
 
-Record the command, revision, date, count/result, and relevant errors for the final candidate. Do not reuse the 49-test development count after more tests or source changes without a fresh result.
+Record the command, revision, date, count/result, and relevant errors for each new candidate. The 67-test result belongs to runtime revision ae402567; it does not certify a later installer until the packaged source is compared with the reviewed source.
 
 ## Deferred live checklist
 
-Do not begin these checks until the Leng test world is ready and the user resumes live testing.
+Do not begin these checks until a disposable test world is ready and the user resumes live testing.
 
 1. Download the actual release installer and install it for the current Windows user. Confirm the tray icon, Show status, duplicate-launch behavior, and native protocol registration.
 2. Toggle Start at Windows login. Confirm both enabled and disabled behavior after a real Windows sign-in. Verify uninstall cleanup later in a separate lifecycle check.

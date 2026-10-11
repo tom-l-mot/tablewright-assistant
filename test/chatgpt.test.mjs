@@ -474,6 +474,35 @@ test('catalog outages retain identity and credentials and late catalog completio
   assert.equal((await store.load()).account.accessToken, undefined);
 });
 
+test('catalog, model, and error saves cannot finish after sign-out and restore credentials', async () => {
+  for (const operation of ['catalog', 'model', 'error']) {
+    const { auth, store } = await signedInAuth(async () => new Response(JSON.stringify(catalog)));
+    let started;
+    let release;
+    const writing = new Promise(resolve => { started = resolve; });
+    const gate = new Promise(resolve => { release = resolve; });
+    const save = store.save;
+    let active = 0;
+    let overlapping = false;
+    store.save = async record => {
+      if (++active > 1) overlapping = true;
+      if (record.account?.accessToken) { started(); await gate; }
+      await save(record);
+      active--;
+    };
+    const mutation = operation === 'catalog' ? auth.loadModels() : operation === 'model' ? auth.selectModel('gpt-5.6-luna') : auth.recordError(new AssistantError('PROVIDER', 'Unavailable'));
+    await writing;
+    const signingOut = auth.signOut();
+    await new Promise(resolve => setImmediate(resolve));
+    release();
+    await Promise.all([mutation, signingOut]);
+    assert.equal(overlapping, false, operation);
+    assert.equal(auth.status().signedIn, false, operation);
+    assert.equal((await store.load()).account.accessToken, undefined, operation);
+    assert.equal((await store.load()).account.refreshToken, undefined, operation);
+  }
+});
+
 test('refresh retains omitted scopes and prevents inference when direct permission is removed', async () => {
   const { auth } = await signedInAuth(async () => new Response(JSON.stringify(catalog)));
   auth.record.account.expiresAt = 0;

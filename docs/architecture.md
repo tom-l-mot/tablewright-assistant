@@ -53,6 +53,6 @@ No generic plugin system, arbitrary command router, source-statistics generator,
 
 ## Verification boundary
 
-Automated fixtures exercise protocol, model policy, plans, package contents, and cancellation. Native app checks, browser transport probes, release downloads, and real Foundry behavior are separate evidence categories. The [verification table](verification.md) records their status.
+Automated fixtures exercise protocol, model policy, plans, package contents, and cancellation. The installed Windows executable passed synthetic credential, single-instance, and startup-registration checks. A Brave Chromium 154 HTTP fixture exercised the actual browser client's connection and disconnection. Neither check verifies real Foundry or completed ChatGPT authorization. The [verification table](verification.md) records these limits; release notes record published-artifact checks.
 
-The user has deferred installation and live-world checks until the Leng test world is ready. This does not turn those checks into passes.
+The user has deferred installation and live-world checks until a disposable test world is ready. This does not turn those checks into passes.

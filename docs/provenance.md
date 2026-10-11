@@ -32,7 +32,7 @@ Native normalization uses world collections fromCompendium. Creation explicitly 
 
 ## Release boundary
 
-Version 0.2.0-alpha.1 is intended as an unsigned Windows test prerelease in the public [Tablewright repository](https://github.com/tom-l-mot/tablewright-assistant). Publication of the v0.2.0-alpha.1 installer and module assets, fresh-download checks, and live Foundry verification remain pending. No official Foundry directory listing is claimed.
+Version 0.2.0-alpha.1 is an unsigned Windows test prerelease in the public [Tablewright repository](https://github.com/tom-l-mot/tablewright-assistant). Consult the [release notes](https://github.com/tom-l-mot/tablewright-assistant/releases/tag/v0.2.0-alpha.1) for the reviewed source commit, artifact checksums, packaged-source comparison, and fresh-download results. If the release or an asset is missing, stop rather than substituting another build. Live Foundry verification remains pending. No official Foundry directory listing is claimed.
 
 The model/MCP receive bounded metadata, not full source descriptions, document JSON, art, or assets. A permitted-pack setting does not establish model-use rights. Official listing and content-rights review remain separate matters under [Foundry's AI policy](https://foundryvtt.com/article/ai-policy/).
 
