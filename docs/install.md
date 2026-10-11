@@ -230,6 +230,7 @@ Keep that window open. The companion stops when you close it or press **Ctrl+C**
 9. Click **Continue with ChatGPT**, then click **Open ChatGPT sign-in**.
 10. In the opened browser tab, choose your ChatGPT account and approve plan usage for Tablewright Assistant. Return to Foundry when the tab says ChatGPT connected.
 11. Confirm that the window shows your ChatGPT account and a model in the model list. You can choose another listed model.
+12. Under **Model access and billing**, leave **ChatGPT plan (shared limits)** selected. **API key (separate API billing)** appears only when you configure that optional path; selecting it explicitly sends requests through the API key.
 
 ChatGPT credentials stay in Windows-protected local storage for your account. The Foundry browser receives only the sign-in link, account display name, model list, and status. You can select **Sign out of ChatGPT** in the window to end the renewable session.
 
@@ -237,7 +238,7 @@ Only one GM browser can connect at a time. `@assistant` opens the window. It doe
 
 ## 7. Create your first NPC
 
-The next action uses your authorized ChatGPT plan and counts toward its shared usage limits. Check [ChatGPT usage settings](https://chatgpt.com/settings/usage) to manage limits and optional credits.
+The next action uses the model access and billing path shown in the assistant window. With **ChatGPT plan** selected, it counts toward shared plan limits. Check [ChatGPT usage settings](https://chatgpt.com/settings/usage) to manage limits and optional credits.
 
 1. Enter `1` in **Party level**.
 2. Enter `4` in **Party size**.

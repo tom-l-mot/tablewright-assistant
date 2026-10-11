@@ -39,7 +39,7 @@ test('actual Responses loop preserves reasoning and call outputs, proposes, and 
   t.after(() => server.close());
   const gm = await fakeGM(server.port);
   const resultMessage = new Promise(resolve => gm.ws.on('message', raw => { const value = JSON.parse(raw.toString()); if (value.type === 'prompt_result') resolve(value); }));
-  gm.ws.send(JSON.stringify({ type: 'prompt', id: 'prompt1', prompt: 'Propose a scout NPC.', party: { level: 4, size: 4, threat: 'moderate' } }));
+  gm.ws.send(JSON.stringify({ type: 'prompt', id: 'prompt1', prompt: 'Propose a scout NPC.', party: { level: 4, size: 4, threat: 'moderate' }, provider: 'api_key' }));
   const result = await resultMessage;
   assert.equal(result.result.planIds.length, 1);
   assert.equal(result.result.text.includes(key), false);

@@ -1,15 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
+import { execFileSync } from 'node:child_process';
 import { WebSocket } from 'ws';
+import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
-import { ChatGPTAuth } from '../companion/chatgpt-auth.mjs';
+import { ChatGPTAuth, verifyChatGPTIdToken } from '../companion/chatgpt-auth.mjs';
 import { chatgptStore } from '../companion/chatgpt-store.mjs';
 import { runProvider } from '../companion/provider.mjs';
 import { startCompanion } from '../companion/server.mjs';
 import { BrowserConnection } from '../module/scripts/connection.mjs';
+import { windowMarkup } from '../module/scripts/ui.mjs';
 import { fakeFoundry } from './fake-foundry.mjs';
 import { config, origin, connectBrowser, memoryCredentialStore } from './transport-fixture.mjs';
 
@@ -26,6 +29,69 @@ test('Windows credential file is DPAPI protected and survives a process read', {
   await store.save({ hostId: 'test-host', secret: 'rotated-secret' });
   assert.deepEqual(await store.load(), { hostId: 'test-host', secret: 'rotated-secret' });
   assert.equal((await readFile(join(directory, 'chatgpt-credentials.dpapi'), 'utf8')).includes('fake-refresh-secret'), false);
+  const release = await store.lock();
+  const probe = `import { chatgptStore } from ${JSON.stringify(new URL('../companion/chatgpt-store.mjs', import.meta.url).href)}; try { const release = await chatgptStore(process.argv[1]).lock(); process.stdout.write('acquired'); await release(); } catch { process.stdout.write('blocked'); }`;
+  const checkOtherProcess = () => execFileSync(process.execPath, ['--input-type=module', '-e', probe, directory], { encoding: 'utf8' });
+  assert.equal(checkOtherProcess(), 'blocked');
+  await release();
+  assert.equal(checkOtherProcess(), 'acquired');
+});
+
+test('ID token verification requires a signed expiration claim', async () => {
+  const { publicKey, privateKey } = await generateKeyPair('RS256');
+  const jwk = { ...await exportJWK(publicKey), kid: 'test-key', alg: 'RS256', use: 'sig' };
+  const keys = createLocalJWKSet({ keys: [jwk] });
+  const sign = () => new SignJWT({ sub: 'gm', nonce: 'fresh-nonce' }).setProtectedHeader({ alg: 'RS256', kid: 'test-key' }).setIssuer('https://auth.openai.com').setAudience('oaiapp_test');
+  await assert.rejects(verifyChatGPTIdToken(await sign().sign(privateKey), 'oaiapp_test', 'fresh-nonce', keys), /exp/);
+  assert.equal((await verifyChatGPTIdToken(await sign().setExpirationTime('1h').sign(privateKey), 'oaiapp_test', 'fresh-nonce', keys)).subject, 'gm');
+});
+
+test('issued client ID survives failed code exchange for returning authorization', async () => {
+  const store = memoryCredentialStore();
+  const auth = new ChatGPTAuth({ store, fetchImpl: async () => new Response('{}', { status: 400 }) });
+  const redirect = 'http://127.0.0.1:33333/auth/callback';
+  const first = new URL(await auth.begin(redirect));
+  const callback = new URL(redirect);
+  callback.searchParams.set('code', 'invalid-grant');
+  callback.searchParams.set('state', first.searchParams.get('state'));
+  callback.searchParams.set('client_id', 'oaiapp_issued');
+  await assert.rejects(auth.callback(callback), /sign-in or renewal failed/);
+  assert.equal((await store.load()).pendingClientId, 'oaiapp_issued');
+  const retry = new URL(await auth.begin(redirect));
+  assert.equal(retry.searchParams.get('client_id'), 'oaiapp_issued');
+  assert.equal(retry.searchParams.has('agent_name_hint'), false);
+});
+
+test('sign-out invalidates a pending callback, including an in-flight code exchange', async () => {
+  const store = memoryCredentialStore();
+  let exchangeStarted;
+  let finishExchange;
+  const started = new Promise(resolve => { exchangeStarted = resolve; });
+  const gate = new Promise(resolve => { finishExchange = resolve; });
+  const auth = new ChatGPTAuth({ store, fetchImpl: async url => {
+    if (url.endsWith('/oauth/token')) { exchangeStarted(); await gate; return new Response(JSON.stringify(tokenResponse('cancelled'))); }
+    return new Response();
+  }, verifyIdToken: async () => ({ subject: 'gm', email: 'gm@example.test' }) });
+  const redirect = 'http://127.0.0.1:33333/auth/callback';
+  const first = new URL(await auth.begin(redirect));
+  const stale = new URL(redirect);
+  stale.searchParams.set('code', 'stale');
+  stale.searchParams.set('state', first.searchParams.get('state'));
+  stale.searchParams.set('client_id', 'oaiapp_issued');
+  await auth.signOut();
+  await assert.rejects(auth.callback(stale), /expired or did not match/);
+  const second = new URL(await auth.begin(redirect));
+  const callback = new URL(redirect);
+  callback.searchParams.set('code', 'in-flight');
+  callback.searchParams.set('state', second.searchParams.get('state'));
+  callback.searchParams.set('client_id', 'oaiapp_issued');
+  const completion = auth.callback(callback);
+  await started;
+  const signingOut = auth.signOut();
+  finishExchange();
+  await assert.rejects(completion, /cancelled/);
+  await signingOut;
+  assert.equal(auth.status().signedIn, false);
 });
 
 function fakeOpenAI() {
@@ -126,6 +192,33 @@ test('Foundry browser remains paired after signing out of ChatGPT', async t => {
   const result = await browser.signOutChatGPT();
   assert.equal(result.revoked, true);
   assert.equal(browser.connected, true);
+});
+
+test('ChatGPT choice never falls through to separate API billing', async t => {
+  const store = memoryCredentialStore();
+  await store.save({ hostId: 'urn:uuid:test-host', account: { clientId: 'oaiapp_test', subject: 'gm', email: 'gm@example.test', models: [], model: '' } });
+  let paidRequests = 0;
+  const server = await startCompanion({ ...config, apiKey: 'fake-api-key', model: 'api-model' }, { credentialStore: store, fetchImpl: async () => {
+    paidRequests++;
+    return new Response(JSON.stringify({ output: [{ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'API response' }] }] }));
+  } });
+  t.after(() => server.close());
+  const ws = await connectBrowser(server.port);
+  t.after(() => ws.close());
+  const party = { level: 1, size: 4, threat: 'low' };
+  const first = once(ws, 'message');
+  ws.send(JSON.stringify({ type: 'prompt', id: 'chatgpt-choice', provider: 'chatgpt', prompt: 'hello', party }));
+  const rejected = JSON.parse((await first)[0].toString());
+  assert.equal(rejected.error.code, 'PROVIDER_CONFIG');
+  assert.equal(paidRequests, 0);
+  const state = { connectionState: 'connected', apiKeyConfigured: true, providerConfigured: true, chatgpt: { signedIn: false, email: 'gm@example.test', models: [], model: '' }, busy: false, url: 'ws://127.0.0.1:33333/browser', party, status: 'Ready', prompt: 'hello', response: '', plans: [] };
+  assert.match(windowMarkup({ ...state, providerChoice: 'chatgpt' }), /<button type="submit" disabled>Send to model<\/button>/);
+  assert.match(windowMarkup({ ...state, providerChoice: 'api_key' }), /<button type="submit"\s*>Send to model<\/button>/);
+  const second = once(ws, 'message');
+  ws.send(JSON.stringify({ type: 'prompt', id: 'api-choice', provider: 'api_key', prompt: 'hello', party }));
+  const allowed = JSON.parse((await second)[0].toString());
+  assert.equal(allowed.result.text, 'API response');
+  assert.equal(paidRequests, 1);
 });
 
 test('ChatGPT Responses uses supported streamed payload and requires a completed event', async () => {

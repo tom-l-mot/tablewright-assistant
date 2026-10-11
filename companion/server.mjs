@@ -15,8 +15,10 @@ function tokenMatches(value, expected) {
 }
 
 export async function startCompanion(config, { fetchImpl = fetch, authTimeout = 10000, credentialStore = process.platform === 'win32' ? createChatgptStore() : null, verifyIdToken } = {}) {
+  const releaseCredentials = await credentialStore?.lock?.();
   const chatgpt = new ChatGPTAuth({ store: credentialStore, fetchImpl, verifyIdToken });
-  await chatgpt.init();
+  try { await chatgpt.init(); }
+  catch (error) { await releaseCredentials?.(); throw error; }
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_FRAME, perMessageDeflate: false });
   const pending = new Map();
   let browser = null;
@@ -121,7 +123,7 @@ export async function startCompanion(config, { fetchImpl = fetch, authTimeout = 
           text(message.userId, 1, 100);
           Object.assign(connection, { authenticated: true, worldId: message.worldId, userId: message.userId });
           clearTimeout(timer);
-          send(ws, { type: 'paired', ...status(), chatgpt: chatgpt.status() });
+          send(ws, { type: 'paired', ...status(), chatgpt: chatgpt.status(), apiKeyConfigured: Boolean(config.apiKey && config.model) });
         } else if (message.type === 'result') {
           object(message, ['type', 'id', 'result', 'error'], ['type', 'id']);
           if (Object.hasOwn(message, 'result') === Object.hasOwn(message, 'error')) fail('INVALID', 'Invalid browser result.');
@@ -156,15 +158,21 @@ export async function startCompanion(config, { fetchImpl = fetch, authTimeout = 
             send(ws, { type: 'chatgpt_result', id: message.id, result });
           } catch (error) { send(ws, { type: 'chatgpt_result', id: message.id, error: safeError(error) }); }
         } else if (message.type === 'prompt') {
-          object(message, ['type', 'id', 'prompt', 'party']);
+          object(message, ['type', 'id', 'prompt', 'party', 'provider']);
           text(message.id, 1, 100);
           text(message.prompt, 1, 4000);
           const party = validateParty(message.party);
           if (connection.promptController) { send(ws, { type: 'prompt_result', id: message.id, error: { code: 'BUSY', message: 'A model request is already running.' } }); return; }
           connection.promptController = new AbortController();
           try {
-            const signedIn = chatgpt.status().signedIn && chatgpt.status().model;
-            const provider = signedIn ? { ...config, apiKey: '', chatgptToken: await chatgpt.accessToken(), model: chatgpt.status().model, endpoint: 'https://api.openai.com/v1/responses' } : config;
+            let provider;
+            if (message.provider === 'chatgpt') {
+              if (!chatgpt.status().signedIn || !chatgpt.status().model) fail('PROVIDER_CONFIG', 'Sign in with ChatGPT and choose a model before sending a request.');
+              provider = { ...config, apiKey: '', chatgptToken: await chatgpt.accessToken(), model: chatgpt.status().model, endpoint: 'https://api.openai.com/v1/responses' };
+            } else if (message.provider === 'api_key') {
+              if (!config.apiKey || !config.model) fail('PROVIDER_CONFIG', 'Configure an API key and model before choosing separate API billing.');
+              provider = config;
+            } else fail('PROVIDER_CONFIG', 'Choose ChatGPT plan usage or separate API billing in Foundry.');
             const result = await runProvider(provider, message.prompt, party, callBrowser, { fetchImpl, signal: connection.promptController.signal });
             send(ws, { type: 'prompt_result', id: message.id, result });
           } catch (error) {
@@ -176,7 +184,8 @@ export async function startCompanion(config, { fetchImpl = fetch, authTimeout = 
       }
     });
   });
-  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(config.port, '127.0.0.1', resolve); });
+  try { await new Promise((resolve, reject) => { server.once('error', reject); server.listen(config.port, '127.0.0.1', resolve); }); }
+  catch (error) { await releaseCredentials?.(); throw error; }
   port = server.address().port;
   return {
     port,
@@ -185,6 +194,7 @@ export async function startCompanion(config, { fetchImpl = fetch, authTimeout = 
       await new Promise(resolve => wss.close(resolve));
       server.closeAllConnections();
       await new Promise(resolve => server.close(resolve));
+      await releaseCredentials?.();
     }
   };
 }

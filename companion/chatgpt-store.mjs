@@ -1,7 +1,8 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { createServer } from 'node:net';
 
 const encoding = "$ErrorActionPreference = 'Stop'; $utf8 = [Text.UTF8Encoding]::new($false); [Console]::InputEncoding = $utf8; [Console]::OutputEncoding = $utf8; Add-Type -AssemblyName System.Security; ";
 const encrypt = `${encoding}$bytes = $utf8.GetBytes([Console]::In.ReadToEnd()); $encrypted = [Security.Cryptography.ProtectedData]::Protect($bytes, $null, [Security.Cryptography.DataProtectionScope]::CurrentUser); [Console]::Out.Write([Convert]::ToBase64String($encrypted))`;
@@ -24,7 +25,15 @@ function protect(script, value) {
 export function chatgptStore(directory = process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, 'Tablewright Assistant')) {
   if (process.platform !== 'win32' || !directory) throw new Error('ChatGPT sign-in currently requires Windows local credential storage.');
   const path = join(directory, 'chatgpt-credentials.dpapi');
+  const lockPath = `\\\\.\\pipe\\tablewright-chatgpt-${createHash('sha256').update(path.toLowerCase()).digest('hex').slice(0, 24)}`;
   return {
+    lock() {
+      const server = createServer(socket => socket.destroy());
+      return new Promise((resolve, reject) => {
+        server.once('error', () => reject(new Error('Another Tablewright companion is using ChatGPT credentials for this Windows user. Close it before starting this companion.')));
+        server.listen(lockPath, () => resolve(() => new Promise(done => server.close(done))));
+      });
+    },
     async load() {
       let saved;
       try { saved = await readFile(path, 'utf8'); }

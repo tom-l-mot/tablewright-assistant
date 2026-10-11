@@ -12,6 +12,8 @@ export function createWindow(adapter, plans, connection) {
       this.party = { level: '', size: '', threat: 'moderate' };
       this.response = '';
       this.authUrl = '';
+      this.providerChoice = 'chatgpt';
+      this.apiKeyChosen = false;
       this.status = 'Disconnected. Start the local companion, then enter its pairing token.';
       this.busy = false;
       this.focusId = 'assistant-prompt';
@@ -34,6 +36,7 @@ export function createWindow(adapter, plans, connection) {
       this.promptText = element.querySelector('#assistant-prompt')?.value ?? this.promptText;
       this.party = { level: element.querySelector('#assistant-level')?.value ?? this.party.level, size: element.querySelector('#assistant-size')?.value ?? this.party.size, threat: element.querySelector('#assistant-threat')?.value ?? this.party.threat };
       this.url = element.querySelector('#assistant-url')?.value ?? this.url;
+      this.providerChoice = element.querySelector('#assistant-provider')?.value ?? this.providerChoice;
     }
 
     async run(action) {
@@ -49,7 +52,7 @@ export function createWindow(adapter, plans, connection) {
 
     async _renderHTML() {
       const result = document.createElement('div');
-      result.innerHTML = windowMarkup({ url: this.url, prompt: this.promptText, party: this.party, response: this.response, status: this.status, busy: this.busy, connectionState: connection.state, providerConfigured: connection.providerConfigured, chatgpt: connection.chatgpt, authUrl: this.authUrl, plans: plans.list() });
+      result.innerHTML = windowMarkup({ url: this.url, prompt: this.promptText, party: this.party, response: this.response, status: this.status, busy: this.busy, connectionState: connection.state, providerConfigured: connection.providerConfigured, apiKeyConfigured: connection.apiKeyConfigured, providerChoice: this.providerChoice, chatgpt: connection.chatgpt, authUrl: this.authUrl, plans: plans.list() });
       return result;
     }
 
@@ -64,14 +67,23 @@ export function createWindow(adapter, plans, connection) {
         const token = tokenInput.value;
         const endpoint = element.querySelector('#assistant-url').value;
         tokenInput.value = '';
-        void this.run(async () => { await connection.connect(endpoint, token); this.status = 'Connected. MCP can propose plans. Review and approve them here.'; });
+        void this.run(async () => { await connection.connect(endpoint, token); this.status = 'Connected. MCP can propose plans. Review and approve them here.'; }).then(() => {
+          if (connection.connected && connection.apiKeyConfigured && !connection.chatgpt.signedIn && !connection.chatgpt.email && !this.apiKeyChosen) { this.providerChoice = 'api_key'; void this.refresh(); }
+        });
       });
       element.querySelector('[data-form="prompt"]').addEventListener('submit', event => {
         event.preventDefault();
         this.capture();
         const prompt = this.promptText;
         const party = { level: Number(this.party.level), size: Number(this.party.size), threat: this.party.threat };
-        void this.run(async () => { const result = await connection.prompt(prompt, party); this.response = result.text; this.status = 'Model request finished. Review the source records and planned documents.'; });
+        void this.run(async () => { const result = await connection.prompt(prompt, party, this.providerChoice); this.response = result.text; this.status = 'Model request finished. Review the source records and planned documents.'; });
+      });
+      element.querySelector('#assistant-provider').addEventListener('change', event => {
+        this.capture();
+        this.providerChoice = event.currentTarget.value;
+        this.apiKeyChosen = this.providerChoice === 'api_key';
+        this.status = this.apiKeyChosen ? 'Selected API key with separate API billing.' : 'Selected ChatGPT plan usage.';
+        void this.refresh();
       });
       element.querySelector('#assistant-model')?.addEventListener('change', event => {
         const model = event.currentTarget.value;

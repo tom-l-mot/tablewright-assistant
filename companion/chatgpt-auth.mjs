@@ -13,8 +13,8 @@ const JWKS = createRemoteJWKSet(new URL(`${ISSUER}/.well-known/jwks.json`));
 const random = () => randomBytes(32).toString('base64url');
 const same = (a, b) => typeof a === 'string' && typeof b === 'string' && Buffer.byteLength(a) === Buffer.byteLength(b) && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
-async function verify(token, clientId, nonce) {
-  const { payload } = await jwtVerify(token, JWKS, { issuer: ISSUER, audience: clientId });
+export async function verifyChatGPTIdToken(token, clientId, nonce, keys = JWKS) {
+  const { payload } = await jwtVerify(token, keys, { issuer: ISSUER, audience: clientId, algorithms: ['RS256'], requiredClaims: ['exp'] });
   if (!same(payload.nonce, nonce) || typeof payload.sub !== 'string' || !payload.sub) fail('CHATGPT_AUTH', 'ChatGPT returned an invalid account identity.');
   return { subject: payload.sub, email: typeof payload.email === 'string' ? payload.email : '' };
 }
@@ -26,12 +26,14 @@ function credentials(value) {
 }
 
 export class ChatGPTAuth {
-  constructor({ store, fetchImpl = fetch, verifyIdToken = verify } = {}) {
+  constructor({ store, fetchImpl = fetch, verifyIdToken = verifyChatGPTIdToken } = {}) {
     this.store = store;
     this.fetchImpl = fetchImpl;
     this.verifyIdToken = verifyIdToken;
     this.record = null;
     this.pending = null;
+    this.authEpoch = 0;
+    this.completing = null;
     this.refreshing = null;
   }
 
@@ -58,12 +60,12 @@ export class ChatGPTAuth {
     const verifier = random();
     if (newAccount && this.record.account?.refreshToken) fail('CHATGPT_AUTH', 'Sign out of the current ChatGPT account first.');
     // shortcut: one saved ChatGPT account per companion; add an account picker when switching without sign-out is needed.
-    const clientId = newAccount ? null : this.record.account?.clientId ?? null;
+    const clientId = newAccount ? null : (this.record.account?.clientId ?? this.record.pendingClientId ?? null);
     this.pending = { state, nonce, verifier, redirectUri, clientId, startedAt: Date.now() };
     const url = new URL(`${ISSUER}/api/accounts/authorize`);
     const params = { client_id: clientId ?? 'dynamic_agent_client', ext_agent_host_id: this.record.hostId, response_type: 'code', redirect_uri: redirectUri, scope: SCOPES, resource: RESOURCE, state, nonce, code_challenge_method: 'S256', code_challenge: createHash('sha256').update(verifier).digest('base64url') };
     if (!clientId) params.agent_name_hint = 'Tablewright Assistant';
-    if (clientId && this.record.account.email) params.login_hint = this.record.account.email;
+    if (clientId && this.record.account?.email) params.login_hint = this.record.account.email;
     for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
     return url.href;
   }
@@ -78,21 +80,38 @@ export class ChatGPTAuth {
   }
 
   async callback(url) {
+    if (this.completing) fail('CHATGPT_AUTH', 'A ChatGPT sign-in is already finishing.');
+    const task = this.#finishCallback(url);
+    this.completing = task;
+    try { return await task; }
+    finally { if (this.completing === task) this.completing = null; }
+  }
+
+  async #finishCallback(url) {
     const pending = this.pending;
     if (!pending || Date.now() - pending.startedAt > 300000 || url.searchParams.getAll('state').length !== 1 || !same(url.searchParams.get('state'), pending.state)) fail('CHATGPT_AUTH', 'This ChatGPT sign-in link expired or did not match. Start again from Foundry.');
     this.pending = null;
+    const epoch = this.authEpoch;
     if (url.searchParams.has('error')) fail('CHATGPT_AUTH', 'ChatGPT sign-in was cancelled or not authorized.');
     if (url.searchParams.getAll('code').length !== 1 || !url.searchParams.get('code') || url.searchParams.getAll('client_id').length > 1) fail('CHATGPT_AUTH', 'ChatGPT returned an invalid authorization result.');
     const returnedId = url.searchParams.get('client_id');
     const clientId = pending.clientId ?? returnedId;
     if (!clientId || clientId === 'dynamic_agent_client' || (pending.clientId && returnedId && returnedId !== pending.clientId)) fail('CHATGPT_AUTH', 'ChatGPT returned an unexpected client registration.');
+    if (!pending.clientId) {
+      this.record = { ...this.record, pendingClientId: clientId };
+      await this.store.save(this.record);
+    }
     const tokens = credentials(await this.#token({ grant_type: 'authorization_code', client_id: clientId, code: url.searchParams.get('code'), code_verifier: pending.verifier, redirect_uri: pending.redirectUri, resource: RESOURCE }));
     let identity;
     try { identity = await this.verifyIdToken(tokens.idToken, clientId, pending.nonce); }
     catch { fail('CHATGPT_AUTH', 'ChatGPT returned an invalid account identity.'); }
-    if (pending.clientId && identity.subject !== this.record.account.subject) fail('CHATGPT_AUTH', 'ChatGPT returned a different account.');
+    if (epoch !== this.authEpoch) {
+      await this.#revoke(tokens.refreshToken, clientId);
+      fail('CHATGPT_AUTH', 'This ChatGPT sign-in was cancelled.');
+    }
+    if (pending.clientId && this.record.account && identity.subject !== this.record.account.subject) fail('CHATGPT_AUTH', 'ChatGPT returned a different account.');
     const candidate = { clientId, ...identity, ...tokens, models: [], model: '' };
-    this.record = { ...this.record, account: candidate };
+    this.record = { ...this.record, account: candidate, pendingClientId: null };
     await this.store.save(this.record);
     await this.loadModels();
     return this.status();
@@ -117,6 +136,7 @@ export class ChatGPTAuth {
 
   async loadModels() {
     const token = await this.accessToken();
+    const account = this.record.account;
     let response;
     let body;
     try {
@@ -126,7 +146,7 @@ export class ChatGPTAuth {
     } catch { fail('CHATGPT_MODELS', 'Could not load models for this ChatGPT account. Try signing in again.'); }
     const models = Array.isArray(body.models) ? body.models.filter(item => item?.visibility === 'list' && typeof item.slug === 'string' && /^[A-Za-z0-9._-]{1,100}$/.test(item.slug) && typeof item.display_name === 'string').slice(0, 100).map(item => ({ slug: item.slug, name: item.display_name.slice(0, 100) })) : [];
     if (!models.length) fail('CHATGPT_MODELS', 'No supported models are available to this ChatGPT account.');
-    const account = this.record.account;
+    if (this.record.account !== account) fail('CHATGPT_AUTH', 'The ChatGPT account changed while loading models.');
     const model = models.some(item => item.slug === account.model) ? account.model : models[0].slug;
     this.record = { ...this.record, account: { ...account, models, model } };
     await this.store.save(this.record);
@@ -141,17 +161,24 @@ export class ChatGPTAuth {
   }
 
   async signOut() {
+    this.pending = null;
+    this.authEpoch++;
     await this.init();
+    if (this.completing) await this.completing.catch(() => {});
     if (this.refreshing) await this.refreshing.catch(() => {});
     const account = this.record.account;
     if (!account?.refreshToken) return { ...this.status(), revoked: true };
-    let revoked = false;
-    try {
-      const response = await this.fetchImpl(REVOKE_URL, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(15000), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ token: account.refreshToken, token_type_hint: 'refresh_token', client_id: account.clientId }) });
-      revoked = response.ok;
-    } catch { /* Local sign-out still clears credentials. */ }
+    const revoked = await this.#revoke(account.refreshToken, account.clientId);
     this.record = { ...this.record, account: { clientId: account.clientId, subject: account.subject, email: account.email, models: [], model: '' } };
     await this.store.save(this.record);
     return { ...this.status(), revoked };
+  }
+
+  async #revoke(token, clientId) {
+    try {
+      const response = await this.fetchImpl(REVOKE_URL, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(15000), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ token, token_type_hint: 'refresh_token', client_id: clientId }) });
+      return response.ok;
+    } catch { return false; }
+    return false;
   }
 }

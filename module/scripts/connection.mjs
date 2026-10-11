@@ -15,6 +15,7 @@ export class BrowserConnection {
     this.pageProtocol = pageProtocol;
     this.state = 'disconnected';
     this.providerConfigured = false;
+    this.apiKeyConfigured = false;
     this.chatgpt = { signedIn: false, email: '', models: [], model: '' };
     this.authError = '';
     this.ws = null;
@@ -50,6 +51,7 @@ export class BrowserConnection {
         this.ws = null;
         this.state = 'disconnected';
         this.providerConfigured = false;
+        this.apiKeyConfigured = false;
         this.chatgpt = { signedIn: false, email: '', models: [], model: '' };
         this.authError = '';
         for (const request of this.#requests.values()) { clearTimeout(request.timer); request.reject(new AssistantError('DISCONNECTED', 'The local companion disconnected.')); }
@@ -63,12 +65,13 @@ export class BrowserConnection {
           if (typeof event.data !== 'string' || new TextEncoder().encode(event.data).length > MAX_FRAME) fail('PAYLOAD', 'The companion response is invalid or too large.');
           const message = JSON.parse(event.data);
           if (message.type === 'paired') {
-            object(message, ['type', 'connected', 'worldId', 'userId', 'providerConfigured', 'chatgpt']);
+            object(message, ['type', 'connected', 'worldId', 'userId', 'providerConfigured', 'chatgpt', 'apiKeyConfigured']);
             this.adapter.requireGM();
-            if (this.state !== 'connecting' || message.connected !== true || message.worldId !== this.adapter.game.world.id || message.userId !== this.adapter.game.user.id || typeof message.providerConfigured !== 'boolean') fail('AUTH', 'The companion paired a different browser or world.');
+            if (this.state !== 'connecting' || message.connected !== true || message.worldId !== this.adapter.game.world.id || message.userId !== this.adapter.game.user.id || typeof message.providerConfigured !== 'boolean' || typeof message.apiKeyConfigured !== 'boolean') fail('AUTH', 'The companion paired a different browser or world.');
             clearTimeout(timer);
             this.state = 'connected';
             this.providerConfigured = message.providerConfigured;
+            this.apiKeyConfigured = message.apiKeyConfigured;
             this.chatgpt = this.#chatgptStatus(message.chatgpt);
             this.onChange();
             resolve();
@@ -187,18 +190,19 @@ export class BrowserConnection {
     this.ws.close();
   }
 
-  async prompt(prompt, party) {
+  async prompt(prompt, party, provider) {
     this.adapter.requireGM();
     text(prompt, 1, 4000);
     validateParty(party);
     if (!this.connected) fail('DISCONNECTED', 'Connect the local companion first.');
+    if (provider === 'chatgpt' ? !this.chatgpt.signedIn || !this.chatgpt.model : provider === 'api_key' ? !this.apiKeyConfigured : true) fail('PROVIDER_CONFIG', 'Choose a configured model access option before sending a request.');
     if (this.#requests.size) fail('BUSY', 'A model request is already running.');
     const bytes = globalThis.crypto.getRandomValues(new Uint8Array(8));
     const id = [...bytes].map(byte => byte.toString(16).padStart(2, '0')).join('');
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => { this.#requests.delete(id); reject(new AssistantError('TIMEOUT', 'The model request timed out. Review any pending plans before trying again.')); }, 125000);
       this.#requests.set(id, { resolve, reject, timer });
-      try { this.ws.send(JSON.stringify({ type: 'prompt', id, prompt, party })); }
+      try { this.ws.send(JSON.stringify({ type: 'prompt', id, prompt, party, provider })); }
       catch { clearTimeout(timer); this.#requests.delete(id); reject(new AssistantError('CONNECTION', 'The browser could not send the model request.')); }
     });
   }
