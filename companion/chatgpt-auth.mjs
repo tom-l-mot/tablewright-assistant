@@ -204,7 +204,7 @@ export class ChatGPTAuth {
         try { errorBody = await boundedJSON(response.body, 32768); } catch { errorBody = null; }
         throw chatgptError(errorBody, { status: response.status, requestId: response.headers.get('x-request-id'), fallbackCode: 'CHATGPT_MODELS', fallbackMessage: 'Could not load models for this ChatGPT account. Try again later.' });
       }
-      body = await boundedJSON(response.body, 131072);
+      body = await boundedJSON(response.body, 1024 * 1024);
     } catch (error) {
       const safe = error instanceof AssistantError && error.code !== 'JSON' && error.code !== 'PAYLOAD' ? error : new AssistantError('CHATGPT_MODELS', 'Could not load models for this ChatGPT account. Try again later.');
       if (this.record.account === account && epoch === this.authEpoch) await this.recordError(safe);
