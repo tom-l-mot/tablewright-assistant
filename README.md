@@ -1,5 +1,11 @@
 # Tablewright Assistant
 
+[![MIT License](https://img.shields.io/github/license/tom-l-mot/tablewright-assistant)](LICENSE)
+[![Foundry 14 target](https://img.shields.io/badge/Foundry-14%20target-orange)](docs/verification.md)
+[![PF2e 8.5.1 target](https://img.shields.io/badge/PF2e-8.5.1%20target-purple)](docs/verification.md)
+[![Report a bug](https://img.shields.io/badge/Issues-report%20a%20bug-blue?logo=github)](https://github.com/tom-l-mot/tablewright-assistant/issues/new/choose)
+[![Contribute](https://img.shields.io/badge/Contribute-welcome-brightgreen?logo=github)](CONTRIBUTING.md)
+
 An AI companion for Game Masters using Pathfinder Second Edition in Foundry VTT.
 
 Describe what you need, review the assistant's proposal, and approve the result inside Foundry. For example:
@@ -21,7 +27,7 @@ A compendium is Foundry's library of creatures or items. Version 0.1.1 uses thos
 
 The guide explains what to download, where to paste each command, what to expect, and how to recover when a step fails. You do not need Git or GitHub CLI.
 
-This is a private development alpha. Your GitHub account needs repository access. There is no public release download, automatic installer, or Foundry package-directory installation yet.
+The source is public under the MIT license. This is an early alpha. The guide below uses GitHub's source ZIP. There is no tagged release package, automatic installer, or Foundry package-directory installation yet.
 
 The first target is Foundry 14 with PF2e 8.5.1, running on the same Windows PC as the assistant. Use a disposable test world. Live Foundry rendering, real imports, and paid AI requests remain unverified. Hosted Foundry and HTTPS connections are not supported by this alpha.
 
@@ -42,7 +48,7 @@ The beginner guide uses an OpenAI API key for the button inside Foundry. If you 
 
 ## Cost and privacy
 
-Tablewright has no module charge. Optional donations are the intended funding approach, but a donation page has not been set up.
+Tablewright has no module charge.
 
 You need your own Foundry license and AI access. The in-window OpenAI option can incur API charges. [OpenAI bills API usage separately from a ChatGPT subscription](https://help.openai.com/en/articles/9039756-managing-billing-settings-on-the-chatgpt-web-and-api-platform). The MCP option uses your AI client's own access and limits.
 
@@ -50,13 +56,16 @@ Your provider key stays in the companion's local settings. Your prompt and limit
 
 ## Need help?
 
-Start with [installation troubleshooting](docs/install.md#if-something-goes-wrong). If you are still stuck, use the [help request checklist](docs/install.md#ask-for-help) to report the failing step. Never include your API key, pairing token, or settings file.
+Start with [installation troubleshooting](docs/install.md#if-something-goes-wrong). [Open an issue](https://github.com/tom-l-mot/tablewright-assistant/issues/new/choose) to report a bug or suggest a feature. Use the [help request checklist](docs/install.md#ask-for-help) and never include your API key, pairing token, settings file, campaign names, or player information.
+
+Report security vulnerabilities through the private reporting method in [SECURITY.md](SECURITY.md). Do not post them as public issues.
 
 ## For technical users and contributors
 
+- [How to contribute](CONTRIBUTING.md).
 - [Advanced setup and MCP configuration](docs/technical-reference.md).
 - [Verification evidence and live checklist](docs/verification.md).
 - [Architecture](docs/architecture.md).
 - [Source credits and license notices](docs/provenance.md).
 
-The code uses the MIT license. The repository remains private during development. Public distribution, a Foundry listing, and the remaining live checks are still pending.
+The source is public under the MIT license. A tagged release package, a Foundry listing, and the remaining live checks are still pending.

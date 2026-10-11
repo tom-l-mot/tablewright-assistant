@@ -58,7 +58,7 @@ Replace the destination if your data path differs. If that module directory alre
 
 Start Foundry and enable **Tablewright Assistant** in a disposable PF2e world. In **Configure Settings**, optionally enter comma-separated exact module pack IDs in **Additional permitted module compendiums**. PF2e system Actor and Item packs are permitted by default. World packs and Macro, Journal, and other document types are rejected.
 
-Enabling a pack does not establish rights to share its metadata with a model. This is a private local alpha. Public release, official Foundry package listing, and content-rights review remain pending under [Foundry's AI policy](https://foundryvtt.com/article/ai-policy/).
+Enabling a pack does not establish rights to share its metadata with a model. This remains a local alpha. A tagged release, official Foundry package listing, and content-rights review remain pending under [Foundry's AI policy](https://foundryvtt.com/article/ai-policy/).
 
 ## Connect the GM browser
 
