@@ -62,6 +62,35 @@ test('issued client ID survives failed code exchange for returning authorization
   assert.equal(retry.searchParams.has('agent_name_hint'), false);
 });
 
+test('another-account retry reuses its issued ID while returning sign-in keeps the saved account', async () => {
+  const store = memoryCredentialStore();
+  await store.save({ hostId: 'urn:uuid:00000000-0000-0000-0000-000000000001', account: { clientId: 'oaiapp_A', subject: 'account-A', email: 'a@example.test', models: [], model: '' } });
+  const auth = new ChatGPTAuth({ store, fetchImpl: async () => new Response('{}', { status: 400 }) });
+  const redirect = 'http://127.0.0.1:33333/auth/callback';
+  const another = new URL(await auth.begin(redirect, true));
+  assert.equal(another.searchParams.get('client_id'), 'dynamic_agent_client');
+  const failed = new URL(redirect);
+  failed.searchParams.set('code', 'invalid-grant');
+  failed.searchParams.set('state', another.searchParams.get('state'));
+  failed.searchParams.set('client_id', 'oaiapp_B');
+  await assert.rejects(auth.callback(failed), /sign-in or renewal failed/);
+  assert.equal((await store.load()).pendingClientId, 'oaiapp_B');
+
+  const returning = new URL(await auth.begin(redirect));
+  assert.equal(returning.searchParams.get('client_id'), 'oaiapp_A');
+  assert.equal(returning.searchParams.get('login_hint'), 'a@example.test');
+  const denied = new URL(redirect);
+  denied.searchParams.set('error', 'access_denied');
+  denied.searchParams.set('state', returning.searchParams.get('state'));
+  await assert.rejects(auth.callback(denied), /cancelled/);
+
+  const retry = new URL(await auth.begin(redirect, true));
+  assert.equal(retry.searchParams.get('client_id'), 'oaiapp_B');
+  assert.equal(retry.searchParams.has('agent_name_hint'), false);
+  assert.equal(retry.searchParams.has('login_hint'), false);
+  assert.equal((await store.load()).account.clientId, 'oaiapp_A');
+});
+
 test('sign-out invalidates a pending callback, including an in-flight code exchange', async () => {
   const store = memoryCredentialStore();
   let exchangeStarted;
