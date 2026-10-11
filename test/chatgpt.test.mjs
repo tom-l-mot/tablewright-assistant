@@ -341,6 +341,43 @@ async function signedInAuth(fetchImpl, tokens = tokenResponse('test')) {
   return { auth, store };
 }
 
+test('OAuth accepts a 600 KiB model catalog and retains only bounded listed model metadata', async () => {
+  const body = JSON.stringify({ models: [
+    { slug: 'expensive-first', display_name: 'Expensive first', visibility: 'list' },
+    { slug: 'gpt-5.6-luna', display_name: 'GPT-5.6 Luna', visibility: 'list', unused_metadata: 'discarded-catalog-metadata:' + 'x'.repeat(600 * 1024) },
+    { slug: 'hidden', display_name: 'Hidden', visibility: 'hidden' }
+  ] });
+  assert.equal(Buffer.byteLength(body) > 500 * 1024 && Buffer.byteLength(body) < 700 * 1024, true);
+  const { auth, store } = await signedInAuth(async () => new Response(body));
+  assert.deepEqual(auth.status(), {
+    signedIn: true, email: 'gm@example.test',
+    models: [{ slug: 'expensive-first', name: 'Expensive first' }, { slug: 'gpt-5.6-luna', name: 'GPT-5.6 Luna' }],
+    model: 'gpt-5.6-luna', accessState: 'ready', message: '', reasoningEffort: 'high'
+  });
+  assert.equal(Buffer.byteLength(JSON.stringify(auth.status())) < 1024, true);
+  assert.equal(JSON.stringify(await store.load()).includes('discarded-catalog-metadata'), false);
+});
+
+test('catalogs over 1 MiB remain rejected without clearing credentials or exposing metadata', async () => {
+  const { auth, store } = await signedInAuth(async () => new Response(JSON.stringify(catalog)));
+  const body = JSON.stringify({ models: [{ ...catalog.models[0], unused_metadata: 'oversized-private-metadata:' + 'x'.repeat(1024 * 1024) }] });
+  assert.equal(Buffer.byteLength(body) > 1024 * 1024, true);
+  auth.fetchImpl = async () => new Response(body);
+  await assert.rejects(auth.loadModels(), error => {
+    assert.equal(error.code, 'CHATGPT_MODELS');
+    assert.equal(error.message.length <= 200, true);
+    assert.equal(JSON.stringify(error).includes('oversized-private-metadata'), false);
+    return true;
+  });
+  assert.equal(auth.status().signedIn, true);
+  assert.equal(auth.status().accessState, 'unavailable');
+  assert.equal(Buffer.byteLength(JSON.stringify(auth.status())) < 1024, true);
+  const saved = await store.load();
+  assert.equal(saved.account.accessToken, 'access-test');
+  assert.equal(saved.account.refreshToken, 'refresh-test');
+  assert.equal(JSON.stringify(saved).includes('oversized-private-metadata'), false);
+});
+
 test('identity-only sign-in remains connected without permission, models, or inference access', async () => {
   let requests = 0;
   const { auth, store } = await signedInAuth(async () => { requests++; throw new Error('No catalog request is authorized'); }, { ...tokenResponse('identity'), scope: 'openid profile email', refresh_token: undefined });
