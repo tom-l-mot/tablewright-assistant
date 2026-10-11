@@ -54,7 +54,7 @@ Live Foundry chat, rendering, PF2e embedded data and browser connectivity need t
 
 ## Throughput checkpoint
 
-- Blocking first steps: account/private repo and source licenses verified; rule table corrected before implementation.
+- Blocking first steps: repository access and source licenses verified; rule table corrected before implementation.
 - Independent workstreams: monetization uses a separate read-only chat; designs used separate artifacts and a completed-candidate judge.
 - Shared mutable state: one implementation owner gets an exclusive Git worktree; integration/review occur after that owner stops writing.
 - Smallest safe decomposition: browser/companion protocol is one coupled feature owned by one writer. Independent review follows its immutable candidate commit.
