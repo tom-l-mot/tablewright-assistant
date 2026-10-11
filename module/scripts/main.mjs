@@ -18,7 +18,8 @@ Hooks.once('ready', () => {
   const plans = new PlanStore(adapter, () => foundry.utils.randomID(16), update);
   const connection = new BrowserConnection(adapter, plans, () => {
     if (!app) return;
-    app.status = connection.connected ? 'Connected to the local companion. Review pending plans before approval.' : `Companion ${connection.state}.`;
+    if (connection.chatgpt.signedIn) app.authUrl = '';
+    app.status = connection.authError || (connection.chatgpt.signedIn ? 'ChatGPT connected. Choose a model and send a request.' : connection.connected ? 'Connected to the local companion. Continue with ChatGPT or use MCP planning.' : `Companion ${connection.state}.`);
     update();
   });
   app = createWindow(adapter, plans, connection);

@@ -5,7 +5,7 @@ import { once } from 'node:events';
 import { startCompanion } from '../companion/server.mjs';
 import { BrowserConnection } from '../module/scripts/connection.mjs';
 import { assistantCommand, approveFromClick, windowMarkup } from '../module/scripts/ui.mjs';
-import { config, origin, token, rpc } from './transport-fixture.mjs';
+import { config, origin, token, rpc, memoryCredentialStore } from './transport-fixture.mjs';
 import { fakeFoundry, npcRequest } from './fake-foundry.mjs';
 
 class LocalBrowserSocket extends WebSocket {
@@ -31,7 +31,7 @@ test('browser approval requires a trusted click before any world write', async (
 test('window markup escapes model/source/user text and supplies labels and status focus', async () => {
   const env = fakeFoundry();
   const plan = await env.plans.propose({ ...npcRequest, name: '<img src=x onerror=alert(1)>' });
-  const html = windowMarkup({ connectionState: 'connected', providerConfigured: true, busy: false, url: 'ws://127.0.0.1:33333/browser', party: { level: '', size: '', threat: 'moderate' }, status: 'Ready', prompt: '</textarea><script>bad()</script>', response: '<script>bad()</script>', plans: [plan] });
+  const html = windowMarkup({ connectionState: 'connected', providerConfigured: true, busy: false, url: 'ws://127.0.0.1:33333/browser', party: { level: '', size: '', threat: 'moderate' }, status: 'Ready', prompt: '</textarea><script>bad()</script>', response: '<script>bad()</script>', chatgpt: { signedIn: true, email: '<img src=x onerror=bad()>', models: [{ slug: 'safe', name: '<script>bad()</script>' }], model: 'safe' }, plans: [plan] });
   assert.equal(html.includes('<script>'), false);
   assert.equal(html.includes('<img src=x'), false);
   assert.equal(html.includes('&lt;script&gt;'), true);
@@ -42,11 +42,12 @@ test('window markup escapes model/source/user text and supplies labels and statu
   assert.equal(html.includes('role="status"'), true);
   assert.equal(html.includes('tabindex="-1"'), true);
   assert.equal(html.includes('name="token" type="password"'), true);
+  assert.equal(html.includes('for="assistant-model"'), true);
 
 });
 
 test('actual browser client pairs, answers narrow companion calls, and never imports remotely', async t => {
-  const server = await startCompanion(config);
+  const server = await startCompanion(config, { credentialStore: memoryCredentialStore() });
   t.after(() => server.close());
   const env = fakeFoundry();
   const connection = new BrowserConnection(env.adapter, env.plans, () => {}, { WebSocketClass: LocalBrowserSocket });

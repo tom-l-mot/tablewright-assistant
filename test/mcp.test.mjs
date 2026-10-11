@@ -5,11 +5,11 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { startCompanion } from '../companion/server.mjs';
 import { TOOLS } from '../module/lib/protocol.mjs';
-import { config, token, fakeGM } from './transport-fixture.mjs';
+import { config, token, fakeGM, memoryCredentialStore } from './transport-fixture.mjs';
 import { npcRequest } from './fake-foundry.mjs';
 
 test('real SDK stdio client discovers and uses the live companion read/proposal tools', async t => {
-  const server = await startCompanion(config);
+  const server = await startCompanion(config, { credentialStore: memoryCredentialStore() });
   t.after(() => server.close());
   const gm = await fakeGM(server.port);
   const transport = new StdioClientTransport({ command: process.execPath, args: [fileURLToPath(new URL('../mcp/main.mjs', import.meta.url))], env: { ASSISTANT_TOKEN: token, ASSISTANT_PORT: String(server.port) }, stderr: 'pipe' });
