@@ -47,6 +47,7 @@ async function completedStream(body, response) {
   let buffer = '';
   let bytes = 0;
   let completed = null;
+  const finalized = new Map();
   for await (const chunk of body) {
     bytes += chunk.byteLength;
     if (bytes > MAX_FRAME * 4) fail('PROVIDER_LIMIT', 'The provider stream exceeded its size limit.');
@@ -61,11 +62,19 @@ async function completedStream(body, response) {
       try { parsed = JSON.parse(data); } catch { fail('PROVIDER', 'The provider returned a malformed stream.'); }
       if (parsed.type === 'response.failed' || parsed.type === 'error') throw chatgptError(parsed.response ?? { error: parsed.error ?? parsed }, { status: response.status, requestId: response.headers.get('x-request-id') });
       if (parsed.type === 'response.incomplete') fail('PROVIDER_INCOMPLETE', 'The ChatGPT response was incomplete. Review the request before trying again.');
+      if (parsed.type === 'response.output_item.done') {
+        if (!Number.isInteger(parsed.output_index) || parsed.output_index < 0 || parsed.output_index >= 32 || !parsed.item || typeof parsed.item !== 'object' || Array.isArray(parsed.item)) fail('PROVIDER', 'The provider returned a malformed output item or index.');
+        finalized.set(parsed.output_index, parsed.item);
+      }
       if (parsed.type === 'response.completed') completed = parsed.response;
     }
   }
   if (!completed || completed.status !== 'completed') fail('PROVIDER', 'The provider stream ended before completing.');
-  return completed;
+  if (!Array.isArray(completed.output) || completed.output.length > 32) fail('PROVIDER', 'The provider returned an incomplete or unsupported response.');
+  const output = completed.output.slice();
+  for (const [index, item] of finalized) output[index] = item;
+  for (const item of output) if (!item || typeof item !== 'object' || Array.isArray(item)) fail('PROVIDER', 'The provider returned malformed or missing output items.');
+  return { ...completed, output };
 }
 
 export async function runProvider(config, prompt, party, callTool, { fetchImpl = fetch, signal } = {}) {
