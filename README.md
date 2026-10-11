@@ -1,5 +1,11 @@
 # Tablewright Assistant
 
+[![MIT License](https://img.shields.io/github/license/tom-l-mot/tablewright-assistant)](LICENSE)
+[![Foundry 14 target](https://img.shields.io/badge/Foundry-14%20target-orange)](docs/verification.md)
+[![PF2e 8.5.1 target](https://img.shields.io/badge/PF2e-8.5.1%20target-purple)](docs/verification.md)
+[![Report a bug](https://img.shields.io/badge/Issues-report%20a%20bug-blue?logo=github)](https://github.com/tom-l-mot/tablewright-assistant/issues/new/choose)
+[![Contribute](https://img.shields.io/badge/Contribute-welcome-brightgreen?logo=github)](https://github.com/tom-l-mot/tablewright-assistant/blob/main/CONTRIBUTING.md)
+
 Describe an NPC, merchant, or encounter in Foundry VTT. Review the proposed sources and documents. Click **Approve creations** when the plan is right.
 
 Tablewright has two parts. **Tablewright Assistant** is a Foundry module. **Tablewright Connector** is a small Windows app that runs on the GM's computer and connects the module to ChatGPT. The Foundry server can be on another computer; that server does not need the desktop app.
@@ -37,6 +43,8 @@ ChatGPT credentials remain in Windows-protected storage in the desktop app. Foun
 If creation stops partway through, completed imports stay in the world. Keep the Foundry tab open and review **Retry missing creations**. Refreshing loses the session's pending plans and receipts. There is no automatic rollback or automatic world retry.
 
 ## Project details
+
+Use the [help checklist](docs/install.md#ask-for-help) when opening an [issue](https://github.com/tom-l-mot/tablewright-assistant/issues/new/choose). Report vulnerabilities through the private method in [SECURITY.md](https://github.com/tom-l-mot/tablewright-assistant/blob/main/SECURITY.md). [Contributing guidance](https://github.com/tom-l-mot/tablewright-assistant/blob/main/CONTRIBUTING.md) explains how to propose changes.
 
 Tablewright's code uses the MIT license. It has no module charge; Foundry and eligible AI access remain separate prerequisites. Optional donations are intended, but no donation page is available. No official Foundry directory listing is claimed.
 
