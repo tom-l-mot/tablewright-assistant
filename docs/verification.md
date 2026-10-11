@@ -52,7 +52,7 @@ npm.cmd run build:windows
 
 The first command is the automated suite. Package generation inspects the browser module archive through the package tests. The Windows build creates an unsigned installer and never publishes automatically.
 
-Record the command, revision, date, count/result, and relevant errors for each new candidate. The 67-test result belongs to runtime revision ae402567; it does not certify a later installer until the packaged source is compared with the reviewed source.
+Record the command, revision, date, count/result, and relevant errors for each new candidate. The final 68-test result includes the independent review fixes. It does not certify an installer until its packaged source is compared with the reviewed source.
 
 ## Deferred live checklist
 
