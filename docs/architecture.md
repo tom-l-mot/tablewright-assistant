@@ -1,6 +1,6 @@
 # Desktop architecture
 
-Version **0.2.0-alpha.1** packages the existing Node companion inside a Windows Electron tray app. Foundry remains responsible for previews, permission checks, and document creation. Live Foundry verification is pending.
+Version **0.2.0-alpha.2** packages the existing Node companion inside a Windows Electron tray app. Foundry remains responsible for previews, permission checks, and document creation. Live Foundry verification is pending.
 
 ## User workflow and ownership
 
@@ -44,6 +44,8 @@ Partial creation stops. Completed steps keep their planned IDs and provenance. A
 ChatGPT sign-in, plan authorization, catalog availability, and successful inference are distinct states. The app displays disabled, ineligible, limited, unavailable, and ready states instead of assuming every signed-in account can run a model.
 
 GPT-5.6 Luna is the preferred default only when present in the account catalog and no model is already selected. It requests High reasoning in Standard mode. Missing models require an explicit choice. Other models use their defaults. No first-entry selection, private endpoint, or automatic API billing fallback is allowed.
+
+The Responses reader retains complete output_item.done records by output index and overlays the terminal summary. It preserves replies, function calls, and encrypted reasoning even when completed.output is empty. A terminal completion is required, and later errors prevent tool routing.
 
 The documented open-source flow currently covers eligible Plus and Pro users. Free support remains unmet. [OpenAI quickstart](https://developers.openai.com/siwc/quickstart)
 

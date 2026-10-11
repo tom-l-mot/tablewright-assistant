@@ -12,7 +12,7 @@ Tablewright has two parts. **Tablewright Assistant** is a Foundry module. **Tabl
 
 ## Try the Windows test prerelease
 
-Version **0.2.0-alpha.1** is an unsigned Windows x64 test build. Get the installer and module from the [v0.2.0-alpha.1 release](https://github.com/tom-l-mot/tablewright-assistant/releases/tag/v0.2.0-alpha.1). If that release or either asset is absent, stop rather than substituting a source ZIP. Check the release notes for the reviewed commit, checksums, and download-verification results.
+Version **0.2.0-alpha.2** is an unsigned Windows x64 test build. Get the installer and module from the [v0.2.0-alpha.2 release](https://github.com/tom-l-mot/tablewright-assistant/releases/tag/v0.2.0-alpha.2). If that release or either asset is absent, stop rather than substituting a source ZIP. Check the release notes for the reviewed commit, checksums, and download-verification results.
 
 [Follow the beginner installation guide](docs/install.md). The normal workflow uses an installer and Foundry's **Install Module** screen. You do not need Node.js, a terminal, an API key, or a manually copied pairing token.
 
@@ -34,7 +34,7 @@ The documented open-source Sign in with ChatGPT flow currently supports eligible
 
 Tablewright reads the account's model list. It selects **GPT-5.6 Luna** only when that model is listed and no model has already been selected. That model uses **High** reasoning with **Standard** mode. If it is unavailable, choose a listed model yourself. Tablewright does not silently choose the first model, switch billing, or use a private endpoint.
 
-Requests share your ChatGPT plan limits. [ChatGPT usage settings](https://chatgpt.com/settings/usage) controls account usage and any optional credits. Real account authorization, model availability, and inference for this build are still pending verification.
+Requests share your ChatGPT plan limits. [ChatGPT usage settings](https://chatgpt.com/settings/usage) controls account usage and any optional credits. Real account authorization, model discovery, and a bounded Luna request passed in the packaged connector. Foundry world verification remains pending.
 
 ## Privacy and recovery
 

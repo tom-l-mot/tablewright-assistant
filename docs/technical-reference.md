@@ -1,6 +1,6 @@
 # Technical setup and reference
 
-Normal installation uses the Windows app and Foundry's manifest installer. Start with the [beginner guide](install.md). This page describes development and the interfaces retained for advanced integrations in **0.2.0-alpha.1**.
+Normal installation uses the Windows app and Foundry's manifest installer. Start with the [beginner guide](install.md). This page describes development and the interfaces retained for advanced integrations in **0.2.0-alpha.2**.
 
 ## Run or build the desktop app from source
 
@@ -23,7 +23,7 @@ npm.cmd run package
 npm.cmd run build:windows
 ```
 
-The expected files are `dist/tablewright-assistant-0.2.0-alpha.1.zip` and `dist/windows/Tablewright-Connector-0.2.0-alpha.1-win-x64.exe`. The Windows build is unsigned. These commands build locally and do not publish.
+The expected files are `dist/tablewright-assistant-0.2.0-alpha.2.zip` and `dist/windows/Tablewright-Connector-0.2.0-alpha.2-win-x64.exe`. The Windows build is unsigned. These commands build locally and do not publish.
 
 The manifest in `module/module.json` points to the GitHub prerelease asset and the raw manifest on branch `codex/tablewright-desktop`. Release notes record the reviewed commit, checksums, packaged-source comparison, and fresh-download results. Local build success is not publication evidence. Real Foundry install/update checks remain separate. The manifest permits Foundry 13 through 14 but does not set `compatibility.verified`.
 

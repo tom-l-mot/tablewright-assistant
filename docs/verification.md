@@ -1,12 +1,12 @@
 # Verification evidence
 
-Version **0.2.0-alpha.1** is a Windows test prerelease. This page separates implemented behavior, automated checks, native/browser checks, and real Foundry evidence. An intended behavior is not a passed check.
+Version **0.2.0-alpha.2** is a Windows test prerelease. This page separates implemented behavior, automated checks, native/browser checks, and real Foundry evidence. An intended behavior is not a passed check.
 
 ## Current evidence
 
 | Area | Evidence and status |
 | --- | --- |
-| Automated suite | `npm.cmd test` passed 68/68 after the serialized credential-persistence fix. The final reviewed commit is recorded in the release notes. Artifact rebuild and packaged-source checks are separate release gates. |
+| Automated suite | `npm.cmd test` passed 74/74 after the catalog-limit and finalized-stream fixes. The final reviewed commit is recorded in the release notes. Artifact rebuild and packaged-source checks are separate release gates. |
 | Runtime dependency audit | `npm.cmd audit --omit=dev` reported zero vulnerabilities. |
 | Full dependency audit | Eight moderate build-dependency findings remain, rooted in sprintf-js precision denial of service, GHSA-hp3w-g68c-fv3c, and propagated through the Electron build/download dependency chain. The registry's latest sprintf-js version was 1.1.3 with no patched version available. No forced builder downgrade was applied. This is separate from the zero-finding runtime audit. |
 | Earlier transport/UI baseline | At revision 83df9f4, `node --test test/transport.test.mjs test/browser.test.mjs test/window.test.mjs` passed 15/15. This predates the desktop changes and includes the former HTTPS-rejection test. |
@@ -18,10 +18,10 @@ Version **0.2.0-alpha.1** is a Windows test prerelease. This page separates impl
 | Native protocol pairing | Exact site/code confirmation and expiring grant implemented. Installed protocol registration and actual browser-to-app flow remain pending. |
 | Local HTTP browser connection | The actual browser client connected and disconnected in an HTTP fixture using Brave with Chromium 154. A screenshot was captured. This did not test Foundry, the native pairing approval dialog, or remote HTTPS. |
 | Remote HTTPS browser connection | Loopback targetAddressSpace support implemented for the Chrome 154 target. Real remote Foundry, host policy, and permission flow remain pending. |
-| Real ChatGPT authorization | The real OpenAI consent screen was reached with the selected account. The user's Continue action and completed authorization remain pending. Mock OAuth tests do not prove account authorization. |
-| Actual account model catalog | Pending. Luna is selected only if listed; mock catalog tests do not establish live availability. |
-| Real provider inference and account usage | Pending. No actual successful response or billing/allowance result is claimed here. |
-| Installer and module publication | Release gates are recorded in the external v0.2.0-alpha.1 release notes, including reviewed source, checksums, packaged-source comparison, and fresh-download results. This document does not record a publication or download pass. |
+| Real ChatGPT authorization | Passed in Brave with the packaged 0.2.0-alpha.2 connector. The callback displayed ChatGPT connected and the connector reported ready access. |
+| Actual account model catalog | Passed through the public route. The observed 614,466-byte response contained 10 models, with seven visible models and GPT-5.6 Luna listed and selected. The success reader now permits up to 1 MiB and retains only bounded display metadata. |
+| Real provider inference and account usage | The packaged connector passed a bounded real ChatGPT-plan request. It received TABLEWRIGHT_OK using GPT-5.6 Luna with High reasoning and Standard mode; one request in the final smoke run and zero world writes. Initial attempts exposed discarded finalized stream items; these are now retained. No API key or API-billing fallback was used. Usage accounting was not independently inspected. |
+| Installer and module publication | Release gates are recorded in the external v0.2.0-alpha.2 release notes, including reviewed source, checksums, packaged-source comparison, and fresh-download results. This document does not record a publication or download pass. |
 | Final installer artifact | The initial unsigned Windows x64 build and silent install passed. Rebuild from the final reviewed runtime and packaged-source comparison remain to be completed before publication. |
 | Installer update/uninstall | Human installer UI, update, and uninstall checks remain pending. Local account-data deletion is not requested on uninstall. |
 | Foundry manifest installation/update | Manifest and release asset paths configured. Live installation and update pending. |
@@ -52,7 +52,7 @@ npm.cmd run build:windows
 
 The first command is the automated suite. Package generation inspects the browser module archive through the package tests. The Windows build creates an unsigned installer and never publishes automatically.
 
-Record the command, revision, date, count/result, and relevant errors for each new candidate. The final 68-test result includes the independent review fixes. It does not certify an installer until its packaged source is compared with the reviewed source.
+Record the command, revision, date, count/result, and relevant errors for each new candidate. The final 74-test result includes the independent review fixes. It does not certify an installer until its packaged source is compared with the reviewed source.
 
 ## Deferred live checklist
 
@@ -60,7 +60,7 @@ Do not begin these checks until a disposable test world is ready and the user re
 
 1. Download the actual release installer and install it for the current Windows user. Confirm the tray icon, Show status, duplicate-launch behavior, and native protocol registration.
 2. Toggle Start at Windows login. Confirm both enabled and disabled behavior after a real Windows sign-in. Verify uninstall cleanup later in a separate lifecycle check.
-3. In Foundry setup, install through the exact manifest URL. Confirm version 0.2.0-alpha.1 and enable the module in the test world.
+3. In Foundry setup, install through the exact manifest URL. Confirm version 0.2.0-alpha.2 and enable the module in the test world.
 4. Open the GM browser and use @assistant. Check normal chat/rolls, keyboard navigation, labels, focus, and input retention.
 5. Use Pair desktop, match the native site/code, and Connect desktop. Reject a mismatch, an expired attempt, and a second active session.
 6. Repeat connectivity for local HTTP and actual remote HTTPS. Record browser versions, permission grants/denials, and any host CSP restriction. Do not weaken browser security.
@@ -75,4 +75,4 @@ Do not begin these checks until a disposable test world is ready and the user re
 
 Generated statistics, scene/token placement, automatic combat setup, cross-refresh plan recovery, native Claude inference, and a normal desktop MCP setup are not implemented.
 
-The requested ChatGPT Free flow remains unmet under the currently documented open-source Plus/Pro eligibility. Real Foundry compatibility and successful live inference remain unverified until their rows contain actual evidence.
+The requested ChatGPT Free flow remains unmet under the currently documented open-source Plus/Pro eligibility. Real Foundry compatibility remains unverified; account and inference evidence is recorded above.

@@ -2,7 +2,7 @@
 
 The goal is to connect Tablewright to your GM browser, ask for a proposal, and approve the result inside Foundry.
 
-This guide describes **0.2.0-alpha.1**, an unsigned Windows x64 test build. A silent per-user installer check passed, but the human installer screens and complete Foundry workflow have not been verified. Testing in a disposable world is deferred until that world is ready. The release notes identify the reviewed commit, checksums, and download-verification results for the files offered there.
+This guide describes **0.2.0-alpha.2**, an unsigned Windows x64 test build. A silent per-user installer check passed, but the human installer screens and complete Foundry workflow have not been verified. Testing in a disposable world is deferred until that world is ready. The release notes identify the reviewed commit, checksums, and download-verification results for the files offered there.
 
 ## Before you start
 
@@ -16,8 +16,8 @@ The connector supports pairing with exact HTTP or HTTPS Foundry addresses. The H
 
 ## 1. Install the desktop app
 
-1. Open the [v0.2.0-alpha.1 release page](https://github.com/tom-l-mot/tablewright-assistant/releases/tag/v0.2.0-alpha.1).
-2. Under its assets, find **Tablewright-Connector-0.2.0-alpha.1-win-x64.exe**. If the release or file is absent, stop here. The repository's source ZIP is not the installer.
+1. Open the [v0.2.0-alpha.2 release page](https://github.com/tom-l-mot/tablewright-assistant/releases/tag/v0.2.0-alpha.2).
+2. Under its assets, find **Tablewright-Connector-0.2.0-alpha.2-win-x64.exe**. If the release or file is absent, stop here. The repository's source ZIP is not the installer.
 3. Download and open that file. This build is unsigned, so Windows may show an unknown-publisher warning. Check the repository and filename before deciding whether to run this test build. Do not disable Windows protection globally.
 4. Follow the installer for your Windows user account.
 5. Open **Tablewright Connector** from the Start menu or desktop shortcut.
@@ -40,9 +40,9 @@ This uses Foundry's standard manifest installation. [Foundry module instructions
    ```
 
 5. Click **Install** and wait for Foundry's result.
-6. Confirm **Tablewright Assistant**, version **0.2.0-alpha.1**, appears in the module list.
+6. Confirm **Tablewright Assistant**, version **0.2.0-alpha.2**, appears in the module list.
 
-The manifest points to **tablewright-assistant-0.2.0-alpha.1.zip** in the same prerelease. If Foundry cannot fetch the manifest or archive, stop and check the release notes and download links. There is no claimed official-directory listing.
+The manifest points to **tablewright-assistant-0.2.0-alpha.2.zip** in the same prerelease. If Foundry cannot fetch the manifest or archive, stop and check the release notes and download links. There is no claimed official-directory listing.
 
 ## 3. Enable Tablewright in your test world
 
@@ -150,6 +150,7 @@ Disable Tablewright through **Manage Modules** before removing the module from F
 | Account is signed in but plan access is unavailable | Read the displayed message. Plus/Pro eligibility, authorization, account limits, and listed models are separate checks. |
 | Luna is missing | Choose a listed model deliberately, or wait and retry the catalog. No substitute is chosen automatically. |
 | A usage limit is reached | Check ChatGPT usage settings and return later. Tablewright does not switch to API billing. |
+| Older build says ChatGPT sign-in did not finish | Install 0.2.0-alpha.2. It fixes the model-catalog limit and discarded streamed replies. Keep the existing protected account; repeated consent is unnecessary when access is already ready. |
 | Account session expired | Use Reconnect ChatGPT. Cancel sign-in first if an earlier attempt is still pending. |
 | Partial creations are shown | Keep the Foundry tab open. Review receipts and use Retry missing creations. Do not expect rollback. |
 | Nothing opens for @assistant | Confirm a PF2e world, GM login, and enabled module. Live Foundry behavior is still pending. |

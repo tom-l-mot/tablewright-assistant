@@ -2,7 +2,7 @@
   "id": "tablewright-assistant",
   "title": "Tablewright Assistant",
   "description": "PF2e NPC, merchant, and encounter proposals with explicit GM approval and a local Windows desktop connector. Test prerelease.",
-  "version": "0.2.0-alpha.1",
+  "version": "0.2.0-alpha.2",
   "authors": [
     {
       "name": "Tom"
@@ -28,5 +28,5 @@
   ],
   "url": "https://github.com/tom-l-mot/tablewright-assistant",
   "manifest": "https://raw.githubusercontent.com/tom-l-mot/tablewright-assistant/codex/tablewright-desktop/module/module.json",
-  "download": "https://github.com/tom-l-mot/tablewright-assistant/releases/download/v0.2.0-alpha.1/tablewright-assistant-0.2.0-alpha.1.zip"
+  "download": "https://github.com/tom-l-mot/tablewright-assistant/releases/download/v0.2.0-alpha.2/tablewright-assistant-0.2.0-alpha.2.zip"
 }
