@@ -1,0 +1,87 @@
+name: Bug report
+description: Report a reproducible problem with Tablewright.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search [existing issues](https://github.com/tom-l-mot/tablewright-assistant/issues) first. For setup help, use the [installation help checklist](https://github.com/tom-l-mot/tablewright-assistant/blob/main/docs/install.md#ask-for-help).
+
+        Remove secrets and private campaign or player information from logs and screenshots. Do not attach `.env` files, API keys, pairing tokens, or settings files.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Summarize the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Give clear steps that reproduce the problem. Include the section and step if you followed the installation guide.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead?
+      description: Include the exact error text, with secrets removed.
+    validations:
+      required: true
+  - type: dropdown
+    id: use-mode
+    attributes:
+      label: How are you using Tablewright?
+      options:
+        - Foundry window with the OpenAI button
+        - MCP client
+        - Both
+        - Other
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: versions
+    attributes:
+      label: Version information
+      description: Include your operating system, Node.js, Foundry, PF2e, and Tablewright versions. Write "unknown" when you cannot check one.
+      placeholder: |
+        Operating system:
+        Node.js:
+        Foundry:
+        PF2e:
+        Tablewright:
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Redacted logs
+      description: Paste relevant log lines with secrets and private data removed.
+      render: shell
+  - type: upload
+    id: screenshot
+    attributes:
+      label: Cropped screenshot
+      description: Optionally upload a screenshot with private information hidden and the error visible.
+    validations:
+      accept: .png,.jpg,.jpeg,.gif,.webp
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I removed `.env` files, API keys, pairing tokens, settings files, campaign names, and player data from this report and its attachments.
+          required: true
