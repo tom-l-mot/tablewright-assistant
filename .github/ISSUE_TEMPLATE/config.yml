@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Installation help checklist
+    url: https://github.com/tom-l-mot/tablewright-assistant/blob/main/docs/install.md#ask-for-help
+    about: Share the versions, failing step, error, and redacted screenshot described in this checklist.
+  - name: Report a vulnerability privately
+    url: https://github.com/tom-l-mot/tablewright-assistant/security/advisories/new
+    about: Use GitHub private vulnerability reporting. Do not report vulnerabilities in a public issue.

@@ -32,4 +32,4 @@ Native normalization uses world collections fromCompendium. Creation explicitly 
 
 ## Release boundary
 
-This repository and artifact are a private local alpha. The model/MCP receive bounded metadata, not full source descriptions, document JSON, art, or assets. A permitted-pack setting does not establish model-use rights. Public release and official listing review remain pending under [Foundry's AI policy](https://foundryvtt.com/article/ai-policy/).
+The source repository is public under the MIT license, but Tablewright remains a local alpha. The model/MCP receive bounded metadata, not full source descriptions, document JSON, art, or assets. A permitted-pack setting does not establish model-use rights. A tagged release, official listing, and content-rights review remain pending under [Foundry's AI policy](https://foundryvtt.com/article/ai-policy/).

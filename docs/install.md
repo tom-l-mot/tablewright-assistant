@@ -13,7 +13,6 @@ You need these items.
 - A Windows PC that runs both Foundry and the assistant.
 - Foundry 14 and Pathfinder Second Edition. PF2e 8.5.1 is the first target.
 - A disposable PF2e world where mistakes will not affect a game.
-- A GitHub account with access to the private [Tablewright repository](https://github.com/tom-l-mot/tablewright-assistant).
 - Internet access to download files and contact your AI provider.
 
 This walkthrough uses OpenAI for the button inside Foundry. You need your own API key and API billing access. [API charges are separate from your ChatGPT subscription](https://help.openai.com/en/articles/9039756-managing-billing-settings-on-the-chatgpt-web-and-api-platform). Read the provider's costs before sending a request.
@@ -60,21 +59,20 @@ When this guide shows a command, copy the text inside the box. Do not copy the w
 
 This is a first-install guide. If you already have a `Tablewright-Assistant` folder or an installed module, preserve it and follow [existing installations](#if-you-already-installed-an-earlier-version) before replacing files.
 
-1. Sign in to GitHub in your browser.
-2. Open the [Tablewright repository](https://github.com/tom-l-mot/tablewright-assistant). If GitHub shows a 404 page, your signed-in account may lack access to this private repository.
-3. Above the file list, select **Code**.
-4. Select **Download ZIP**.
+1. Open the public [Tablewright repository](https://github.com/tom-l-mot/tablewright-assistant) in your browser.
+2. Above the file list, select **Code**.
+3. Select **Download ZIP**.
 
    ![GitHub's example repository with the Code button outlined above the file list.](https://docs.github.com/assets/cb-13128/images/help/repository/code-button.png)
 
    This image is from [GitHub's illustrated download guide](https://docs.github.com/en/repositories/working-with-files/using-files/downloading-source-code-archives). It shows an example repository, not Tablewright.
 
-5. Open **Downloads** in File Explorer. Right-click the downloaded ZIP, then choose **Extract All**. Complete the extraction.
-6. Open the extracted folders until you see `package.json`, `.env.example`, `companion`, and `module` together. You may need to open an inner folder named `tablewright-assistant-main`.
-7. Rename that folder to `Tablewright-Assistant`.
-8. Copy that entire folder.
-9. In File Explorer's address bar, enter `%USERPROFILE%` and press **Enter**. This opens your Windows user folder.
-10. Paste the copied folder there. Do not replace an existing folder with that name.
+4. Open **Downloads** in File Explorer. Right-click the downloaded ZIP, then choose **Extract All**. Complete the extraction.
+5. Open the extracted folders until you see `package.json`, `.env.example`, `companion`, and `module` together. You may need to open an inner folder named `tablewright-assistant-main`.
+6. Rename that folder to `Tablewright-Assistant`.
+7. Copy that entire folder.
+8. In File Explorer's address bar, enter `%USERPROFILE%` and press **Enter**. This opens your Windows user folder.
+9. Paste the copied folder there. Do not replace an existing folder with that name.
 
 **Checkpoint.** Enter `%USERPROFILE%\Tablewright-Assistant` in File Explorer's address bar. The folder contains `package.json` directly. It must not contain another project folder that you still need to open.
 
@@ -305,7 +303,7 @@ For another Tablewright version, do not overwrite a running installation or assu
 
 | What you see | What to check |
 | --- | --- |
-| GitHub shows 404 | Sign in with the account that has access to this private repository. There is no public download yet. |
+| The repository page does not load | Check your internet connection and open the public [Tablewright repository](https://github.com/tom-l-mot/tablewright-assistant). |
 | PowerShell cannot find node or npm.cmd | Finish installing Node.js, then close and reopen PowerShell. |
 | Set-Location cannot find the folder | Open `%USERPROFILE%\Tablewright-Assistant` in File Explorer. Confirm that `package.json` is directly inside. |
 | The library install fails | Check internet access and use a local folder outside cloud sync. Keep the error text for a help request. |
@@ -323,7 +321,7 @@ Closing only the assistant window keeps its connection and plans in the current 
 
 ## Ask for help
 
-Include these details in a help request to the maintainer.
+If you need help with installation, [open an issue](https://github.com/tom-l-mot/tablewright-assistant/issues/new/choose) and include these details.
 
 1. The section and step where you stopped.
 2. The exact error text, with any secrets removed.

@@ -1,0 +1,48 @@
+name: Feature request
+description: Suggest a change to Tablewright.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search [existing issues](https://github.com/tom-l-mot/tablewright-assistant/issues) first. Use the [installation help checklist](https://github.com/tom-l-mot/tablewright-assistant/blob/main/docs/install.md#ask-for-help) for setup questions and the bug report form for problems.
+
+        Do not include `.env` files, API keys, pairing tokens, settings files, campaign names, or player data.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the situation and the people affected.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What outcome do you want?
+      description: Describe what you want Tablewright to let you do.
+    validations:
+      required: true
+  - type: dropdown
+    id: use-mode
+    attributes:
+      label: How are you using Tablewright?
+      options:
+        - Foundry window with the OpenAI button
+        - MCP client
+        - Both
+        - Other
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: versions
+    attributes:
+      label: Version information
+      description: If relevant, include your operating system, Node.js, Foundry, PF2e, and Tablewright versions.
+      placeholder: |
+        Operating system:
+        Node.js:
+        Foundry:
+        PF2e:
+        Tablewright:
