@@ -63,7 +63,7 @@ async function completedStream(body, response) {
       if (parsed.type === 'response.failed' || parsed.type === 'error') throw chatgptError(parsed.response ?? { error: parsed.error ?? parsed }, { status: response.status, requestId: response.headers.get('x-request-id') });
       if (parsed.type === 'response.incomplete') fail('PROVIDER_INCOMPLETE', 'The ChatGPT response was incomplete. Review the request before trying again.');
       if (parsed.type === 'response.output_item.done') {
-        if (!Number.isInteger(parsed.output_index) || parsed.output_index < 0 || parsed.output_index >= 32 || !parsed.item || typeof parsed.item !== 'object' || Array.isArray(parsed.item)) fail('PROVIDER', 'The provider returned a malformed output item or index.');
+        if (completed || !Number.isInteger(parsed.output_index) || parsed.output_index < 0 || parsed.output_index >= 32 || finalized.has(parsed.output_index) || !parsed.item || typeof parsed.item !== 'object' || Array.isArray(parsed.item) || typeof parsed.item.type !== 'string') fail('PROVIDER', 'The provider returned a malformed output item or index.');
         finalized.set(parsed.output_index, parsed.item);
       }
       if (parsed.type === 'response.completed') completed = parsed.response;

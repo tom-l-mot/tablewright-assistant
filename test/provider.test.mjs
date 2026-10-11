@@ -161,7 +161,9 @@ test('finalized stream output rejects malformed indexes, holes, items, and exces
   const complete = output => stream({ type: 'response.completed', response: { status: 'completed', output } });
   const bodies = [
     ...[-1, 32, 0.5, '0', null, undefined].map(index => done(index) + complete([])),
-    ...[null, [], 'invalid'].map(value => done(0, value) + complete([])),
+    ...[null, [], 'invalid', {}, { type: 1 }].map(value => done(0, value) + complete([])),
+    done(0) + done(0) + complete([]),
+    complete([]) + done(0),
     done(1) + complete([]),
     done(2) + complete([item]),
     complete(Array.from({ length: 33 }, () => item)),
