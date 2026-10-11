@@ -6,7 +6,7 @@ Version **0.2.0-alpha.1** is a Windows test prerelease. This page separates impl
 
 | Area | Evidence and status |
 | --- | --- |
-| Automated suite | `npm.cmd test` passed 68/68 for runtime source revision `ae402567`. Later artifact rebuild and packaged-source checks are separate release gates. |
+| Automated suite | `npm.cmd test` passed 68/68 after the serialized credential-persistence fix. The final reviewed commit is recorded in the release notes. Artifact rebuild and packaged-source checks are separate release gates. |
 | Runtime dependency audit | `npm.cmd audit --omit=dev` reported zero vulnerabilities. |
 | Full dependency audit | Eight moderate build-dependency findings remain, rooted in sprintf-js precision denial of service, GHSA-hp3w-g68c-fv3c, and propagated through the Electron build/download dependency chain. The registry's latest sprintf-js version was 1.1.3 with no patched version available. No forced builder downgrade was applied. This is separate from the zero-finding runtime audit. |
 | Earlier transport/UI baseline | At revision 83df9f4, `node --test test/transport.test.mjs test/browser.test.mjs test/window.test.mjs` passed 15/15. This predates the desktop changes and includes the former HTTPS-rejection test. |

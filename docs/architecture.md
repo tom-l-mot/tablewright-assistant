@@ -29,6 +29,8 @@ HTTPS connections use the browser's documented loopback target-address-space mec
 
 Account credentials remain in Electron safeStorage-backed files in the desktop user-data directory. Atomic replacement avoids partial credential writes. Single-instance locking prevents a second desktop process from opening the same bridge. Protection is scoped to the Windows user; it is not a defense against all same-user local software.
 
+Credential writes are serialized. An earlier model or status save cannot finish after sign-out and restore credentials on disk.
+
 ## Plans and creation
 
 The browser owns each plan's progression through pending, applying, complete, partial, or rejected. It resolves canonical UUIDs before presenting a preview. Approval rechecks the GM, source snapshots, permitted packs, and supported PF2e rules.
