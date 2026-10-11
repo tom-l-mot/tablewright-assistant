@@ -1,19 +1,74 @@
 {
   "name": "tablewright-assistant",
-  "version": "0.1.1",
+  "version": "0.2.0-alpha.1",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "node --env-file=.env companion/main.mjs",
     "mcp": "node mcp/main.mjs",
     "token": "node scripts/token.mjs",
-    "test": "node --test test/browser.test.mjs test/chatgpt.test.mjs test/domain.test.mjs test/mcp.test.mjs test/package.test.mjs test/plans.test.mjs test/provider.test.mjs test/transport.test.mjs test/window.test.mjs",
-    "package": "node scripts/package.mjs"
+    "test": "node --test test/browser.test.mjs test/chatgpt.test.mjs test/desktop.test.mjs test/domain.test.mjs test/mcp.test.mjs test/package.test.mjs test/plans.test.mjs test/provider.test.mjs test/transport.test.mjs test/window.test.mjs",
+    "package": "node scripts/package.mjs",
+    "desktop": "electron .",
+    "build:windows": "electron-builder --win nsis --x64 --publish never"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.1",
     "jose": "6.2.12",
     "ws": "8.22.0"
+  },
+  "devDependencies": {
+    "electron": "44.7.0",
+    "electron-builder": "26.15.3"
+  },
+  "allowScripts": {
+    "electron@44.7.0": true
+  },
+  "main": "desktop/main.mjs",
+  "description": "Local desktop connector for Tablewright Assistant in Foundry VTT.",
+  "author": "Tom",
+  "build": {
+    "files": [
+      "desktop/**",
+      "companion/**",
+      "module/lib/**",
+      "package.json",
+      "LICENSE",
+      "THIRD_PARTY_NOTICES"
+    ],
+    "win": {
+      "target": [
+        {
+          "arch": [
+            "x64"
+          ],
+          "target": "nsis"
+        }
+      ],
+      "artifactName": "Tablewright-Connector-${version}-win-x64.${ext}",
+      "signExecutable": false
+    },
+    "productName": "Tablewright Connector",
+    "protocols": {
+      "schemes": [
+        "tablewright"
+      ],
+      "name": "Tablewright Foundry pairing"
+    },
+    "directories": {
+      "output": "dist/windows"
+    },
+    "nsis": {
+      "oneClick": false,
+      "createDesktopShortcut": true,
+      "allowElevation": false,
+      "createStartMenuShortcut": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "appId": "com.tablewright.connector"
   }
 }

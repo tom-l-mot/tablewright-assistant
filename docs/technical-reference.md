@@ -1,32 +1,65 @@
 # Technical setup and reference
 
-New to the project? Start with the [beginner installation guide](install.md). This page keeps the advanced setup and developer details. The repository is [tom-l-mot/tablewright-assistant](https://github.com/tom-l-mot/tablewright-assistant).
+Normal installation uses the Windows app and Foundry's manifest installer. Start with the [beginner guide](install.md). This page describes development and the interfaces retained for advanced integrations in **0.2.0-alpha.1**.
 
-The GM uses a Foundry window to review canonical NPC, merchant, and encounter plans. Only a GM click in that window creates documents. Local Codex or Claude MCP clients can search and propose without a provider key.
+## Run or build the desktop app from source
 
-The first live target is Foundry 14 with PF2e 8.5.1. Installed PF2e metadata and source fields were inspected. Live Foundry rendering and real PF2e imports have not been tested. The manifest allows intended Foundry versions 13 through 14 without a verified-version claim. Start with a disposable world on 14.
+Use a physical-disk checkout and Node.js 22 or newer. Dependency extraction previously failed in a Google Drive checkout. Packaging currently uses Windows PowerShell.
 
-## Prepare the companion
-
-Use Node 22 or newer and a physical-disk checkout of this repository. Verification ran on Windows with Node 26.4.0. Google Drive dependency extraction failed during this build. Windows PowerShell supplies ZIP packaging.
-
-Run these commands in the source checkout.
+Run these commands in the repository root. The dependency install downloads Electron; review the repository and lockfile first.
 
 ```powershell
-npm ci --ignore-scripts
+npm.cmd ci
+npm.cmd run desktop
 ```
 
-If `.env` does not exist, copy the example.
+The app starts its own companion on `127.0.0.1:33333`. Do not run `npm.cmd start` alongside it. The normal desktop app does not read `.env` for a provider key or Foundry origin. Pairing supplies the exact origin through native approval.
+
+Build both deliverables with:
 
 ```powershell
-Copy-Item -LiteralPath '.env.example' -Destination '.env'
-npm run token
+npm.cmd run package
+npm.cmd run build:windows
 ```
 
-Copy the generated token line into `ASSISTANT_TOKEN` in `.env`. Keep it separate from any optional provider key. Configure the exact HTTP origin shown in the Foundry browser address bar. Include the port and omit a trailing slash or world path.
+The expected files are `dist/tablewright-assistant-0.2.0-alpha.1.zip` and `dist/windows/Tablewright-Connector-0.2.0-alpha.1-win-x64.exe`. The Windows build is unsigned. These commands build locally and do not publish.
+
+The manifest in `module/module.json` points to the planned GitHub prerelease asset and the raw manifest on branch `codex/tablewright-desktop`. Publication, fresh-download verification, and real Foundry install/update checks are separate gates. The manifest permits Foundry 13 through 14 but does not set `compatibility.verified`.
+
+## Desktop pairing and account storage
+
+The Foundry module generates a random one-use challenge and opens a `tablewright://pair` link. The native dialog shows the exact origin and the first eight characters as a matching code. Its world and user labels are supplied by the page; they are not independent identity proof.
+
+Native approval grants that origin, challenge, world, user, and PF2e system a two-minute pairing window. The browser opens `ws://127.0.0.1:33333/browser` and authenticates in its first message. The server consumes the grant after successful authentication. One browser session is allowed. No long-lived account token enters the pairing link.
+
+For HTTPS pages, the client requests a WebSocket with `targetAddressSpace: 'loopback'`. If that constructor form is unsupported, it tries the ordinary constructor without disabling browser security. Browser policy still decides whether a connection is allowed. Chrome 154 is the current target; real remote Foundry remains unverified. Broad Origin acceptance, certificate exceptions, and browser security flags are not part of the design.
+
+Electron owns the single-instance lock, tray, startup preference, and credential protection. The account file is `chatgpt-credentials.electron` under Electron's `userData` directory for Tablewright Connector. `safeStorage` encrypts it for the Windows user, and writes use a temporary file followed by rename. This does not protect against every process running as that same Windows user.
+
+The older `chatgpt-credentials.dpapi` file is not the new desktop store. No automatic migration is implemented. Sign in through the desktop workflow. The standalone Node entry point does not inject a protected credential store and cannot provide the desktop ChatGPT sign-in experience.
+
+## ChatGPT provider behavior
+
+The implementation uses the documented [open-source Sign in with ChatGPT flow](https://developers.openai.com/siwc/token-sharing-open-source) with OAuth state, PKCE, nonce, ID-token verification, and a loopback callback. OpenAI's [quickstart](https://developers.openai.com/siwc/quickstart) lists eligible Plus and Pro users for open-source plan usage. Free support remains unmet.
+
+The account's live model catalog is authoritative. The default is `gpt-5.6-luna` only when listed and there is no saved selection. A missing saved model is retained as unavailable; the app asks for an explicit selection. It never silently picks the first catalog entry. Luna requests use High reasoning and Standard mode. Other models use their defaults because their High reasoning support is not verified.
+
+Account status distinguishes signed out, disabled plan usage, ineligibility, usage limits, unavailable models, and ready access. It is not enough for OAuth sign-in alone to succeed. Foundry offers Enable ChatGPT plan usage, Cancel sign-in, Check access again, and Sign out of ChatGPT as appropriate.
+
+Requests go to the public Responses API with `store: false` and streaming enabled for the ChatGPT path. There is no hidden private endpoint or automatic API-key fallback. Real authorization and an account-funded response for this build remain verification gates.
+
+## Advanced developer companion
+
+The standalone command remains available for protocol development:
+
+```powershell
+npm.cmd run token
+```
+
+If `.env` does not already exist, copy `.env.example` to it. Set these values locally:
 
 ```dotenv
-ASSISTANT_TOKEN=<generated-companion-token>
+ASSISTANT_TOKEN=<separate-random-token>
 ASSISTANT_PORT=33333
 FOUNDRY_ORIGIN=http://localhost:30000
 OPENAI_API_KEY=
@@ -34,62 +67,21 @@ OPENAI_MODEL=
 OPENAI_RESPONSES_URL=https://api.openai.com/v1/responses
 ```
 
-Leave the provider fields blank for ChatGPT sign-in or MCP planning. After pairing, click **Continue with ChatGPT** in Foundry. The companion completes the direct local OAuth flow and uses the signed-in account's listed models. This route sends `store: false`, `stream: true` requests to the public OpenAI Responses API. To use separate API billing instead, set your key and an explicit API model ID available to that key. The API-key path keeps its configurable HTTPS endpoint and existing function-call loop. See the [official Sign in with ChatGPT guide](https://developers.openai.com/siwc/token-sharing-open-source) and [function calling guide](https://developers.openai.com/api/docs/guides/function-calling).
+The origin must exactly match the browser's protocol, host, and port, with no path or trailing slash. HTTP and HTTPS are accepted by configuration. A configured API key also requires an explicit API model. That is a separate billing path.
 
-The `.env` file is ignored by Git. Optional API keys stay in the companion process and its outbound provider Authorization header. ChatGPT access, refresh, and ID tokens are protected with Windows DPAPI in `%LOCALAPPDATA%\Tablewright Assistant\chatgpt-credentials.dpapi`. Only one companion process can hold that credential store at a time. This alpha saves one ChatGPT account per Windows user. Sign out before choosing **Use another ChatGPT account**; that replaces the saved account registration. If that account's first code exchange fails, choose **Use another ChatGPT account** again to retry its issued registration. **Continue with ChatGPT** still returns to the previously saved account. Do not paste any credential into Foundry, MCP settings, a prompt, or chat. The pairing token is a separate secret that the browser sends as its first WebSocket message. Each Foundry prompt names its model access path explicitly. ChatGPT plan usage is selected by default after sign-in; choosing **API key (separate API billing)** is a deliberate change.
-
-## Install the module
-
-Build the archive.
+Start the developer companion with:
 
 ```powershell
-npm run package
+npm.cmd start
 ```
 
-The result is `dist/tablewright-assistant-0.1.1.zip`. It contains the complete browser module, installation guide, README, license, provenance, and MIT third-party notice. It contains no companion dependencies or compendium content.
+This reads `.env`. Running `node companion/main.mjs` instead uses only process environment variables. The companion accepts a manually authenticated browser client through `BrowserConnection.connect(endpoint, token)`, which remains exercised by protocol tests.
 
-Stop Foundry before installing the module. Extract into your Foundry data `modules` directory. This machine's observed data path is `D:\FoundryVTT`.
-
-```powershell
-Expand-Archive -LiteralPath '.\dist\tablewright-assistant-0.1.1.zip' -DestinationPath 'D:\FoundryVTT\Data\modules'
-```
-
-Replace the destination if your data path differs. If that module directory already exists, preserve it before replacing it. The extracted layout must be `Data/modules/tablewright-assistant/module.json`.
-
-Start Foundry and enable **Tablewright Assistant** in a disposable PF2e world. In **Configure Settings**, optionally enter comma-separated exact module pack IDs in **Additional permitted module compendiums**. PF2e system Actor and Item packs are permitted by default. World packs and Macro, Journal, and other document types are rejected.
-
-Enabling a pack does not establish rights to share its metadata with a model. This is a local alpha. A release download, official Foundry package listing, and content-rights review remain pending under [Foundry's AI policy](https://foundryvtt.com/article/ai-policy/).
-
-## Connect the GM browser
-
-Start the companion from the repository.
-
-```powershell
-npm start
-```
-
-npm start reads the configured .env file. To use only process environment variables, run node companion/main.mjs instead. Its stderr reports `Tablewright Assistant companion listening on 127.0.0.1:33333.` The port changes if you configured another value.
-
-1. Open Foundry on HTTP in a browser on the companion machine.
-2. Type `@assistant` in Foundry chat. Add a request after the prefix to prefill the window.
-3. Enter `ws://127.0.0.1:33333/browser` and the pairing token.
-4. Click **Connect**.
-5. Enter the party level, size, and threat explicitly. Current window requests require those fields for NPCs and shops as well as encounters.
-6. Click **Continue with ChatGPT**, complete sign-in in your browser, and select a listed model. Then click **Send to model**. You can also use an MCP client to propose a plan.
-7. Review the canonical source UUIDs, quantities, levels, XP, and every planned document.
-8. Click **Approve creations** or **Reject plan**.
-
-`@assistant` opens and prefills the window. It does not automatically send to a model. Normal chat and roll commands use the existing Foundry path. The chat interception applies only to the GM.
-
-The companion accepts one authenticated GM browser and world at a time. A second connection is rejected. To select another browser or world, disconnect the first one. Closing the assistant window keeps its paired connection and session plans. Browser refresh discards session plans.
-
-HTTPS Foundry is rejected by this alpha. A localhost plain WebSocket has not been verified with HTTPS or hosted Foundry. ChatGPT sign-in uses an HTTP loopback callback on `127.0.0.1` with a checked state, nonce, and PKCE verifier; it does not expose account tokens to Foundry. Remote ChatGPT web connectors and secure deployment need a separately verified transport. Native Claude API requests are deferred.
+The shipped Foundry window has no manual-token or endpoint fields. Its normal Pair desktop action targets the desktop app. Therefore the standalone companion plus MCP/API-key route is a developer integration, not a complete alternative installation walkthrough for the current UI. It needs a deliberately wired developer browser client. Do not run the normal desktop app on the same port or assume its private random RPC token is available to an MCP client.
 
 ## Configure a local MCP client
 
-Keep the companion running and the GM browser paired. The MCP process proxies to it using the official SDK over stdio. MCP stdout contains only protocol messages. It never starts another browser bridge.
-
-For Claude Desktop or another client that uses JSON MCP configuration, replace the source path and token below.
+This configuration applies only to the advanced standalone companion with a matching manually authenticated developer browser client. It does not connect automatically to the normal desktop app.
 
 ```json
 {
@@ -98,7 +90,7 @@ For Claude Desktop or another client that uses JSON MCP configuration, replace t
       "command": "node",
       "args": ["C:\\path\\to\\checkout\\mcp\\main.mjs"],
       "env": {
-        "ASSISTANT_TOKEN": "<generated-companion-token>",
+        "ASSISTANT_TOKEN": "<same-developer-companion-token>",
         "ASSISTANT_PORT": "33333"
       }
     }
@@ -106,93 +98,58 @@ For Claude Desktop or another client that uses JSON MCP configuration, replace t
 }
 ```
 
-For Codex CLI, the verified command form is shown below. Replace both placeholders before running it. This writes your local MCP configuration.
-
-```powershell
-codex mcp add tablewright-assistant --env 'ASSISTANT_TOKEN=<generated-companion-token>' --env 'ASSISTANT_PORT=33333' -- node 'C:\path\to\checkout\mcp\main.mjs'
-```
-For a TOML client configuration, use the same process and environment.
-
-```toml
-[mcp_servers.tablewright_assistant]
-command = "node"
-args = ["C:\\path\\to\\checkout\\mcp\\main.mjs"]
-
-[mcp_servers.tablewright_assistant.env]
-ASSISTANT_TOKEN = "<generated-companion-token>"
-ASSISTANT_PORT = "33333"
-```
-
-The MCP command does not load the companion .env file. Supply its token and port through the client environment. The client needs no `OPENAI_API_KEY`. Its own agent can select canonical UUIDs and call `propose_creation` directly. Keep the token in local configuration, outside version control.
-
-The six tools are listed here.
+The MCP process does not load `.env`. Supply the token and port through the client environment. It proxies to the running companion with the official SDK over stdio. It does not start another bridge or need the provider key. Its stdout is reserved for protocol traffic.
 
 | Tool | Accepted input and result |
 | --- | --- |
-| `connection_status` | Empty object. Returns pairing status, world/user IDs, and whether a provider is configured. |
-| `world_context` | Empty object. Returns bounded world, party, version, and permitted-pack metadata. |
-| `search_compendium` | `query`, `documentName` as `Actor`, `Item`, or `any`, and `limit` from 1 through 30. Searches names in permitted indexes. |
-| `read_source` | One canonical compendium `uuid`. Returns metadata for an NPC or physical item. |
-| `propose_creation` | A `request` with `kind`, `name`, `background`, `entries`, and `party`. Returns a resolved browser preview. |
-| `get_plan` | The returned plan `id`. Returns the current preview, state, and receipts. |
+| `connection_status` | Empty object. Returns connection and provider status. |
+| `world_context` | Empty object. Returns bounded world, party, version, and pack metadata. |
+| `search_compendium` | Query, Actor/Item/any document type, and limit from 1 through 30. |
+| `read_source` | One permitted canonical compendium UUID. Returns metadata. |
+| `propose_creation` | A validated NPC, shop, or encounter request. Returns a resolved browser preview. |
+| `get_plan` | Plan ID. Returns state, preview, and receipts. |
 
-Each entry contains `uuid` and `quantity`. Use actual UUIDs returned by search. Their form is `Compendium.package.pack.Actor.ID` or `Compendium.package.pack.Item.ID`, with a 16-character document ID. NPC plans need one NPC and one copy. Shops need physical Item sources. Encounters need NPC Actor sources and explicit `party` with integer `level`, integer `size`, and `threat`. Use `party: null` for NPC and shop requests. Unknown fields, duplicate UUIDs, arbitrary document data, updates, macros, and executable input are rejected.
+There is no approval, deletion, arbitrary-update, macro, or executable-code tool.
+
+A creation request has `kind`, `name`, `background`, `entries`, and `party`. Each entry contains a canonical `uuid` and bounded `quantity`. Use actual search results. NPCs require one NPC and one copy. Shops require physical Item sources. Encounters require NPC Actor sources and explicit integer party level/size and threat. NPC and shop requests use `party: null`.
 
 ## Review creations and recover partial imports
 
-NPC imports use native `fromCompendium` normalization, retain canonical statistics and embedded IDs, and append escaped custom background to private notes. Shops create a PF2e `loot` actor with `lootSheetType: "Merchant"` and canonical stock. Stock quantities come from the plan. Container references require their selected container and use stable planned IDs. Actors initially have GM-only ownership.
+NPC imports use native `fromCompendium` normalization, retain canonical statistics and embedded IDs, and append escaped background to private notes. Shops create a PF2e loot actor in Merchant mode with canonical stock and planned quantities. Container references require their selected containers. Actors begin with GM-only ownership.
 
-Encounters create the selected NPC copies and then a GM-only journal roster. The roster records canonical sources, quantities, actual XP, the explicit party inputs, and imported actor IDs. The alpha does not place tokens, activate combat, or create scenes.
+Encounters create actors and then a GM-only journal roster. The roster records sources, quantities, actual XP, party inputs, and imported actor IDs. Tokens, scenes, and combat are not created.
 
-XP uses actual resolved creature levels, not model arithmetic. Creature differences outside -4 through +4 and proficiency without level are rejected. Four-PC budgets are 40, 60, 80, 120, and 160 XP. Per-PC adjustments are 10, 20, 20, 30, and 40 XP. Nonmatching totals identify the interval between budgets. See [GM Core combat threats](https://2e.aonprd.com/Rules.aspx?ID=2716).
+Foundry computes XP from resolved creature levels. The implementation rejects creature level differences outside -4 through +4 and proficiency without level. [PF2e combat threats](https://2e.aonprd.com/Rules.aspx?ID=2716)
 
-Approval rechecks GM permission, permitted sources, source snapshots, and the proficiency variant. Only one approval runs at a time. Stable document IDs and `flags.tablewright-assistant` provenance identify completed steps.
+Approval rechecks GM permission, pack policy, source snapshots, and the proficiency variant. Stable planned IDs and `flags.tablewright-assistant` provenance identify completed steps. Only one approval runs at a time.
 
-If a creation fails, the plan becomes partial and stops. Completed imports remain. Click **Retry missing creations** to reconcile existing planned IDs and create only missing steps. There is no automatic world retry or rollback deletion. A changed source requires rejecting the plan and proposing a fresh one. A conflicting ID or a removed completed document stops retry.
-
-Do not refresh while recovering a partial plan. Pending plans, captured sources, and receipts are browser-session memory. Refresh loses them. Imported documents keep their provenance flags, but the alpha cannot reconstruct a lost plan or resume it across refresh. Review leftovers manually before making a replacement plan.
+A failed creation stops the plan at partial. Completed imports remain. **Retry missing creations** reconciles planned IDs and creates missing steps. It does not delete successful work or automatically retry. Source changes, ID conflicts, and removed completed documents stop recovery. Keep the tab open; refresh loses the in-memory plan, snapshots, and receipts. The app cannot reconstruct that plan from document flags.
 
 ## Understand the data flow
 
-The browser keeps raw selected source snapshots and normalized document data for preview validation and import. Neither leaves Foundry. External tools receive only these bounded values.
+The Foundry browser retains raw source snapshots and normalized document data. External tools receive bounded metadata:
 
-- World ID/title, system and Foundry versions, and whether proficiency without level is enabled.
-- The first 20 character names and levels, and up to 64 permitted pack IDs, labels, and document types.
-- Source UUID, name, document type, PF2e type, integer level, and up to 12 trait names. Search returns at most 30 matches.
-- The entered prompt, custom name/background, explicit party inputs, creation plan metadata, computed XP, and receipt IDs/names/UUIDs.
+- World ID/title, Foundry and system versions, and proficiency variant.
+- Up to 20 character names/levels and 64 permitted pack IDs, labels, and types.
+- Source UUID, name, document type, PF2e type, level, and up to 12 traits.
+- Your prompt, proposed name/background, party inputs, computed XP, and receipt IDs/names/UUIDs.
 
-No source descriptions, stat blocks, art, assets, raw documents, existing journal contents, or full world export go to MCP or the model. Read/proposal MCP traffic stays on the companion machine. Clicking the model button sends the prompt and tool metadata to the configured provider endpoint. Provider output returns as escaped text and browser-validated proposals. A model cannot approve them.
+Full descriptions, stat blocks, artwork, raw documents, and existing journal contents do not go to the model or MCP. Provider output is escaped and validated before preview. Model requests go to OpenAI from the GM's computer. Nothing requires installing the connector on a remote Foundry host.
 
-The companion binds to `127.0.0.1`. HTTP proxy requests require the exact `127.0.0.1:PORT` Host, no Origin header, and Bearer token. The separate `/auth/callback` route accepts only the matching OAuth state and authorization result. Browser WebSockets require the exact configured Foundry Origin, the same Host, the `/browser` path without a query, and first-message token authentication.
+PF2e system Actor and Item packs are permitted by default. **Additional permitted module compendiums** accepts exact module pack IDs. World packs and other document types are rejected. Enabling a pack does not establish rights to share its metadata with a model.
 
-## Verify before using a campaign
+The server listens only on `127.0.0.1`. WebSockets require the exact approved Origin, exact Host and route, and first-message authentication. HTTP `/rpc` remains an originless local interface protected by a separate bearer credential. It does not offer CORS to websites. The OAuth callback checks its pending state. Closing the selected browser aborts model work and rejects pending browser calls.
 
-Run the repeatable local checks.
+## Verification
+
+Run the suite and package checks in the checkout:
 
 ```powershell
-npm test
-npm run package
+npm.cmd test
+npm.cmd run package
 ```
 
-The automated checks run the actual companion, SDK stdio client, and local fake Responses service. Foundry document APIs are fixtures. No provider key or paid inference is required. Read [verification evidence and the live checklist](verification.md) before using the alpha in a campaign. Approval unit tests pass plain objects with isTrusted values. They do not exercise genuine DOM events. ApplicationV2 DOM rendering and real GM clicks remain unverified. These checks do not certify Foundry 13 or 14, PF2e migrations, actual sheet rendering, native Claude API, or paid model behavior.
+These use real local server/SDK processes and fake Foundry/provider fixtures. They do not establish real PF2e imports, real DOM approval events, or account eligibility. Read the [evidence table and live checklist](verification.md).
 
-The shared implementation, trust boundaries, and accepted omissions are described in [architecture](architecture.md). The copied field reader and its full MIT notice are recorded in [provenance](provenance.md) and `THIRD_PARTY_NOTICES`.
-
-## Screenshots to capture before a public release
-
-These captures are pending. They must come from a real installation of the documented version, not a generated image or a standalone HTML preview.
-
-| Capture | What it must show |
-| --- | --- |
-| Download | This repository's Code menu and Download ZIP option. |
-| Source folder | The extracted folder containing package.json and .env.example. Enable file extensions so names are visible. |
-| Foundry data folder | The actual user data path and the Data/modules destination. Hide personal path details. |
-| Module enabled | Tablewright Assistant selected in module management in a PF2e test world. |
-| Connected | The assistant window with its connected status. Pairing token must be empty or redacted. |
-| Proposal | The goblin source, custom name/background, and Approve creations button before approval. |
-| Created NPC | The real PF2e actor sheet after a trusted GM click. |
-
-Use a disposable world, fictional character names, and no provider key. Crop unrelated desktop areas. Add a short caption and descriptive alt text to each image. Place each image next to the corresponding installation step and include the Foundry and module versions. The GitHub download step currently links GitHub's own illustrated guide.
-
-A public installer and a first-run settings screen would remove much of the manual work. Neither exists in this alpha. Do not document those features as available.
+Screenshots must come from the actual documented build. Captures of the installer, native pairing, account state, Foundry preview, and created PF2e sheet remain pending. Do not use generated images as evidence.
 

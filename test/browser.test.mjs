@@ -35,13 +35,14 @@ test('window markup escapes model/source/user text and supplies labels and statu
   assert.equal(html.includes('<script>'), false);
   assert.equal(html.includes('<img src=x'), false);
   assert.equal(html.includes('&lt;script&gt;'), true);
-  for (const id of ['assistant-url', 'assistant-token', 'assistant-prompt', 'assistant-level', 'assistant-size', 'assistant-threat']) {
+  for (const id of ['assistant-prompt', 'assistant-level', 'assistant-size', 'assistant-threat']) {
     assert.equal(html.includes(`for="${id}"`), true);
     assert.equal(html.includes(`id="${id}"`), true);
   }
   assert.equal(html.includes('role="status"'), true);
   assert.equal(html.includes('tabindex="-1"'), true);
-  assert.equal(html.includes('name="token" type="password"'), true);
+  assert.equal(html.includes('assistant-token'), false);
+  assert.equal(html.includes('Pair desktop'), true);
   assert.equal(html.includes('for="assistant-model"'), true);
 
 });
@@ -66,10 +67,8 @@ test('actual browser client pairs, answers narrow companion calls, and never imp
   assert.equal(connection.state, 'disconnected');
 });
 
-test('browser client rejects HTTPS Foundry and credentials in a socket URL', async () => {
+test('browser client rejects credentials in a socket URL', async () => {
   const env = fakeFoundry();
-  const secure = new BrowserConnection(env.adapter, env.plans, () => {}, { pageProtocol: 'https:' });
-  await assert.rejects(secure.connect('ws://127.0.0.1:33333/browser', token), /HTTP Foundry only/);
   const local = new BrowserConnection(env.adapter, env.plans, () => {});
   for (const url of ['ws://127.0.0.1:33333/browser?token=secret', 'ws://localhost:33333/browser', 'ws://user:pass@127.0.0.1:33333/browser']) await assert.rejects(local.connect(url, token));
   assert.equal(env.writes.length, 0);

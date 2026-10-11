@@ -18,7 +18,7 @@ export function companionConfig(env = process.env) {
   } catch {
     fail('CONFIG', 'Set an exact FOUNDRY_ORIGIN and a valid OPENAI_RESPONSES_URL.');
   }
-  if (origin.protocol !== 'http:' || origin.origin !== env.FOUNDRY_ORIGIN || origin.username || origin.password) fail('CONFIG', 'FOUNDRY_ORIGIN must be an exact HTTP origin. HTTPS transport is not verified in this alpha.');
+  if (!['http:', 'https:'].includes(origin.protocol) || origin.origin !== env.FOUNDRY_ORIGIN || origin.username || origin.password) fail('CONFIG', 'FOUNDRY_ORIGIN must be an exact HTTP or HTTPS origin.');
   if (endpoint.protocol !== 'https:' || endpoint.username || endpoint.password || endpoint.search || endpoint.hash) fail('CONFIG', 'The provider endpoint must use HTTPS without credentials, a query, or a fragment.');
   const apiKey = env.OPENAI_API_KEY ?? '';
   if (apiKey && (!env.OPENAI_MODEL || /[\r\n]/.test(apiKey))) fail('CONFIG', 'A provider key requires an explicit OPENAI_MODEL and cannot contain newlines.');

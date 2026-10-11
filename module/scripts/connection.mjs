@@ -19,22 +19,44 @@ export class BrowserConnection {
     this.chatgpt = { signedIn: false, email: '', models: [], model: '' };
     this.authError = '';
     this.ws = null;
+    this.pairingChallenge = '';
   }
 
   get connected() { return this.state === 'connected'; }
 
-  async connect(endpoint, token) {
+  pairingURL() {
+    this.adapter.requireGM();
+    if (this.state !== 'disconnected') fail('BUSY', 'Disconnect before pairing another session.');
+    this.pairingChallenge = [...globalThis.crypto.getRandomValues(new Uint8Array(32))].map(byte => byte.toString(16).padStart(2, '0')).join('');
+    const url = new URL('tablewright://pair');
+    const values = { origin: globalThis.location.origin, challenge: this.pairingChallenge, worldId: this.adapter.game.world.id, userId: this.adapter.game.user.id, systemId: this.adapter.game.system.id };
+    for (const [key, value] of Object.entries(values)) url.searchParams.set(key, value);
+    return url.href;
+  }
+
+  async connect(endpoint = 'ws://127.0.0.1:33333/browser', token = this.pairingChallenge) {
     this.adapter.requireGM();
     if (this.state !== 'disconnected') fail('BUSY', 'Disconnect the current browser connection first.');
-    if (this.pageProtocol !== 'http:') fail('TRANSPORT', 'This alpha supports HTTP Foundry only. Secure WebSocket transport is not verified.');
+    if (!['http:', 'https:'].includes(this.pageProtocol)) fail('TRANSPORT', 'Open Foundry through its HTTP or HTTPS address.');
     let url;
     try { url = new URL(endpoint); } catch { fail('CONFIG', 'Enter the local WebSocket URL.'); }
     if (url.protocol !== 'ws:' || url.hostname !== '127.0.0.1' || !url.port || url.pathname !== '/browser' || url.search || url.hash || url.username || url.password) fail('CONFIG', 'Use ws://127.0.0.1:PORT/browser without credentials or query parameters.');
-    if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{32,256}$/.test(token)) fail('AUTH', 'Enter the separate companion pairing token.');
+    if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{32,256}$/.test(token)) fail('AUTH', 'Click Pair desktop and confirm the Foundry session in Tablewright Connector first.');
+    if (this.pageProtocol === 'https:' && globalThis.navigator?.permissions?.query) {
+      try {
+        const permission = await globalThis.navigator.permissions.query({ name: 'loopback-network' });
+        if (permission.state === 'denied') fail('PERMISSION', 'Allow local or loopback network access for this Foundry site in browser site settings, then reconnect.');
+      } catch (error) { if (error instanceof AssistantError) throw error; }
+    }
     this.state = 'connecting';
     this.onChange();
     let ws;
-    try { ws = new this.WebSocketClass(url.href); }
+    try {
+      if (this.pageProtocol === 'https:') {
+        try { ws = new this.WebSocketClass(url.href, { targetAddressSpace: 'loopback' }); }
+        catch { ws = new this.WebSocketClass(url.href); }
+      } else ws = new this.WebSocketClass(url.href);
+    }
     catch { this.state = 'disconnected'; this.onChange(); fail('CONNECTION', 'The browser could not open the local companion connection.'); }
     this.ws = ws;
     return new Promise((resolve, reject) => {
@@ -43,7 +65,7 @@ export class BrowserConnection {
         ws.send(JSON.stringify({ type: 'auth', token, worldId: this.adapter.game.world.id, userId: this.adapter.game.user.id, systemId: this.adapter.game.system.id }));
         ws.onopen = null;
       };
-      ws.onerror = () => reject(new AssistantError('CONNECTION', 'The local companion connection failed. Check its process, port, and configured Foundry origin.'));
+      ws.onerror = () => reject(new AssistantError('CONNECTION', 'Open Tablewright Connector, confirm pairing, and allow local network access for Foundry. HTTPS requires a compatible browser.'));
       ws.onclose = () => {
         clearTimeout(timer);
         reject(new AssistantError('DISCONNECTED', 'The local companion disconnected.'));
@@ -70,6 +92,7 @@ export class BrowserConnection {
             if (this.state !== 'connecting' || message.connected !== true || message.worldId !== this.adapter.game.world.id || message.userId !== this.adapter.game.user.id || typeof message.providerConfigured !== 'boolean' || typeof message.apiKeyConfigured !== 'boolean') fail('AUTH', 'The companion paired a different browser or world.');
             clearTimeout(timer);
             this.state = 'connected';
+            this.pairingChallenge = '';
             this.providerConfigured = message.providerConfigured;
             this.apiKeyConfigured = message.apiKeyConfigured;
             this.chatgpt = this.#chatgptStatus(message.chatgpt);
@@ -92,7 +115,7 @@ export class BrowserConnection {
             if (Object.hasOwn(message, 'result') === Object.hasOwn(message, 'error')) fail('INVALID', 'The ChatGPT result is invalid.');
             const request = this.#chatgptRequests.get(message.id);
             if (!request) return;
-            if (message.error) { object(message.error, ['code', 'message']); text(message.error.code, 1, 40); text(message.error.message, 1, 200); }
+            if (message.error) { object(message.error, ['code', 'message']); text(message.error.code, 1, 100); text(message.error.message, 1, 200); }
             else {
               object(message.result, ['url', 'status', 'revoked', 'providerConfigured'], []);
               if (message.result.url && (!message.result.url.startsWith('https://auth.openai.com/api/accounts/authorize?') || message.result.url.length > 4096)) fail('INVALID', 'The ChatGPT sign-in URL is invalid.');
@@ -131,7 +154,7 @@ export class BrowserConnection {
             if (!request) return;
             if (message.error) {
               object(message.error, ['code', 'message']);
-              text(message.error.code, 1, 40);
+              text(message.error.code, 1, 100);
               text(message.error.message, 1, 200);
             } else {
               object(message.result, ['text', 'planIds']);
@@ -151,10 +174,13 @@ export class BrowserConnection {
   }
 
   #chatgptStatus(value) {
-    object(value, ['signedIn', 'email', 'models', 'model']);
+    object(value, ['signedIn', 'email', 'models', 'model', 'accessState', 'message', 'reasoningEffort'], ['signedIn', 'email', 'models', 'model']);
     if (typeof value.signedIn !== 'boolean' || !Array.isArray(value.models) || value.models.length > 100) fail('INVALID', 'The ChatGPT account status is invalid.');
     text(value.email, 0, 320);
     text(value.model, 0, 100);
+    if (value.accessState && !['signed_out', 'disabled', 'ready', 'unavailable', 'ineligible', 'usage_limited'].includes(value.accessState)) fail('INVALID', 'The ChatGPT access state is invalid.');
+    if (value.message !== undefined) text(value.message, 0, 200);
+    if (value.reasoningEffort !== undefined && !['', 'high'].includes(value.reasoningEffort)) fail('INVALID', 'The ChatGPT reasoning choice is invalid.');
     for (const model of value.models) {
       object(model, ['slug', 'name']);
       text(model.slug, 1, 100);
@@ -179,6 +205,8 @@ export class BrowserConnection {
 
   async beginChatGPT() { return (await this.#chatgptRequest('begin')).url; }
   async beginOtherChatGPT() { return (await this.#chatgptRequest('new')).url; }
+  async enableChatGPTUsage() { return (await this.#chatgptRequest('enable')).url; }
+  async cancelChatGPT() { return this.#chatgptRequest('cancel'); }
   async loadChatGPTModels() { return this.#chatgptRequest('models'); }
   async selectChatGPTModel(model) { return this.#chatgptRequest('model', model); }
   async signOutChatGPT() { return this.#chatgptRequest('signout'); }
@@ -195,7 +223,7 @@ export class BrowserConnection {
     text(prompt, 1, 4000);
     validateParty(party);
     if (!this.connected) fail('DISCONNECTED', 'Connect the local companion first.');
-    if (provider === 'chatgpt' ? !this.chatgpt.signedIn || !this.chatgpt.model : provider === 'api_key' ? !this.apiKeyConfigured : true) fail('PROVIDER_CONFIG', 'Choose a configured model access option before sending a request.');
+    if (provider === 'chatgpt' ? !this.chatgpt.signedIn || !this.chatgpt.model || (this.chatgpt.accessState && this.chatgpt.accessState !== 'ready') : provider === 'api_key' ? !this.apiKeyConfigured : true) fail('PROVIDER_CONFIG', this.chatgpt.message || 'Choose a configured model access option before sending a request.');
     if (this.#requests.size) fail('BUSY', 'A model request is already running.');
     const bytes = globalThis.crypto.getRandomValues(new Uint8Array(8));
     const id = [...bytes].map(byte => byte.toString(16).padStart(2, '0')).join('');

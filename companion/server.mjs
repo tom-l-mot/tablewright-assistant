@@ -7,14 +7,14 @@ import { validateParty } from '../module/lib/encounter.mjs';
 import { boundedJSON } from './http-json.mjs';
 import { runProvider } from './provider.mjs';
 import { ChatGPTAuth } from './chatgpt-auth.mjs';
-import { chatgptStore as createChatgptStore } from './chatgpt-store.mjs';
+import { parsePairing } from '../desktop/pairing.mjs';
 
 function tokenMatches(value, expected) {
   return typeof value === 'string' && Buffer.byteLength(value) === Buffer.byteLength(expected)
     && timingSafeEqual(Buffer.from(value), Buffer.from(expected));
 }
 
-export async function startCompanion(config, { fetchImpl = fetch, authTimeout = 10000, credentialStore = process.platform === 'win32' ? createChatgptStore() : null, verifyIdToken } = {}) {
+export async function startCompanion(config, { fetchImpl = fetch, authTimeout = 10000, credentialStore = null, verifyIdToken, desktopPairing = false, openAuthorization, onStatus = () => {} } = {}) {
   const releaseCredentials = await credentialStore?.lock?.();
   const chatgpt = new ChatGPTAuth({ store: credentialStore, fetchImpl, verifyIdToken });
   try { await chatgpt.init(); }
@@ -24,6 +24,7 @@ export async function startCompanion(config, { fetchImpl = fetch, authTimeout = 
   let browser = null;
   let port = config.port;
   let httpCalls = 0;
+  let pairing = null;
   const redact = value => {
     const serialized = JSON.stringify(value);
     return [config.apiKey, chatgpt.record?.account?.accessToken, chatgpt.record?.account?.refreshToken, chatgpt.record?.account?.idToken]
@@ -34,7 +35,7 @@ export async function startCompanion(config, { fetchImpl = fetch, authTimeout = 
     if (Buffer.byteLength(data) > MAX_FRAME) fail('PAYLOAD', 'The response exceeded its size limit.');
     if (ws.readyState === WebSocket.OPEN) ws.send(data);
   };
-  const providerConfigured = () => Boolean(config.apiKey && config.model) || Boolean(chatgpt.status().signedIn && chatgpt.status().model);
+  const providerConfigured = () => Boolean(config.apiKey && config.model) || Boolean(chatgpt.status().signedIn && chatgpt.status().model && (!chatgpt.status().accessState || chatgpt.status().accessState === 'ready'));
   const status = () => ({ connected: Boolean(browser?.authenticated), worldId: browser?.authenticated ? browser.worldId : null, userId: browser?.authenticated ? browser.userId : null, providerConfigured: providerConfigured() });
   const chatgptStatus = () => ({ type: 'chatgpt_status', status: chatgpt.status(), providerConfigured: providerConfigured() });
   const callBrowser = async (method, input) => {
@@ -67,9 +68,11 @@ export async function startCompanion(config, { fetchImpl = fetch, authTimeout = 
         if (browser?.authenticated) { send(browser.ws, chatgptStatus()); send(browser.ws, { type: 'chatgpt_error', error: safeError(error) }); }
         res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox" });
         res.end('<!doctype html><title>Tablewright Assistant</title><main><h1>ChatGPT sign-in did not finish</h1><p>Return to Foundry and try again.</p></main>');
+        onStatus(status());
         return;
       }
       if (browser?.authenticated) send(browser.ws, chatgptStatus());
+      onStatus(status());
       return;
     }
     if (req.method !== 'POST' || req.url !== '/rpc') return respond(res, 404, { error: { code: 'ROUTE', message: 'This route is not available.' } });
@@ -92,7 +95,8 @@ export async function startCompanion(config, { fetchImpl = fetch, authTimeout = 
   });
   server.maxConnections = 16;
   server.on('upgrade', (req, socket, head) => {
-    const denied = req.headers.host !== `127.0.0.1:${port}` || req.headers.origin !== config.origin || req.url !== '/browser';
+    const allowedOrigin = desktopPairing ? pairing && Date.now() < pairing.expiresAt ? pairing.origin : null : config.origin;
+    const denied = req.headers.host !== `127.0.0.1:${port}` || req.headers.origin !== allowedOrigin || req.url !== '/browser';
     if (denied || browser) {
       socket.end(`HTTP/1.1 ${browser && !denied ? '409 Conflict' : '403 Forbidden'}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
       return;
@@ -109,6 +113,7 @@ export async function startCompanion(config, { fetchImpl = fetch, authTimeout = 
       connection.promptController?.abort();
       if (browser !== connection) return;
       browser = null;
+      onStatus(status());
       for (const task of pending.values()) { clearTimeout(task.timer); task.reject(new AssistantError('DISCONNECTED', 'The paired Foundry browser disconnected.')); }
       pending.clear();
     });
@@ -118,12 +123,15 @@ export async function startCompanion(config, { fetchImpl = fetch, authTimeout = 
         const message = JSON.parse(raw.toString());
         if (!connection.authenticated) {
           object(message, ['type', 'token', 'worldId', 'userId', 'systemId']);
-          if (message.type !== 'auth' || message.systemId !== 'pf2e' || !tokenMatches(message.token, config.token)) fail('AUTH', 'Authentication failed.');
+          const approved = desktopPairing ? pairing && Date.now() < pairing.expiresAt && tokenMatches(message.token, pairing.challenge) && message.worldId === pairing.worldId && message.userId === pairing.userId && message.systemId === pairing.systemId : tokenMatches(message.token, config.token);
+          if (message.type !== 'auth' || message.systemId !== 'pf2e' || !approved) fail('AUTH', 'Authentication failed.');
           text(message.worldId, 1, 100);
           text(message.userId, 1, 100);
           Object.assign(connection, { authenticated: true, worldId: message.worldId, userId: message.userId });
+          if (desktopPairing) pairing = null;
           clearTimeout(timer);
           send(ws, { type: 'paired', ...status(), chatgpt: chatgpt.status(), apiKeyConfigured: Boolean(config.apiKey && config.model) });
+          onStatus(status());
         } else if (message.type === 'result') {
           object(message, ['type', 'id', 'result', 'error'], ['type', 'id']);
           if (Object.hasOwn(message, 'result') === Object.hasOwn(message, 'error')) fail('INVALID', 'Invalid browser result.');
@@ -145,17 +153,21 @@ export async function startCompanion(config, { fetchImpl = fetch, authTimeout = 
           let result;
           try {
             if (message.action === 'begin') result = { url: await chatgpt.begin(`http://127.0.0.1:${port}/auth/callback`) };
+            else if (message.action === 'enable') result = { url: await chatgpt.begin(`http://127.0.0.1:${port}/auth/callback`, false, true) };
             else if (message.action === 'new') result = { url: await chatgpt.begin(`http://127.0.0.1:${port}/auth/callback`, true) };
             else if (message.action === 'model') result = { status: await chatgpt.selectModel(message.model) };
             else if (message.action === 'models') result = { status: await chatgpt.loadModels() };
+            else if (message.action === 'cancel') result = { status: await chatgpt.cancel() };
             else if (message.action === 'signout') {
               connection.promptController?.abort();
               const { revoked, ...account } = await chatgpt.signOut();
               result = { status: account, revoked };
             }
             else fail('METHOD', 'This ChatGPT operation is not permitted.');
+            if (result.url && openAuthorization) { await openAuthorization(result.url); delete result.url; }
             if (result.status) result.providerConfigured = providerConfigured();
             send(ws, { type: 'chatgpt_result', id: message.id, result });
+            onStatus(status());
           } catch (error) { send(ws, { type: 'chatgpt_result', id: message.id, error: safeError(error) }); }
         } else if (message.type === 'prompt') {
           object(message, ['type', 'id', 'prompt', 'party', 'provider']);
@@ -164,11 +176,13 @@ export async function startCompanion(config, { fetchImpl = fetch, authTimeout = 
           const party = validateParty(message.party);
           if (connection.promptController) { send(ws, { type: 'prompt_result', id: message.id, error: { code: 'BUSY', message: 'A model request is already running.' } }); return; }
           connection.promptController = new AbortController();
+          let registration = chatgpt.record?.account;
           try {
             let provider;
             if (message.provider === 'chatgpt') {
-              if (!chatgpt.status().signedIn || !chatgpt.status().model) fail('PROVIDER_CONFIG', 'Sign in with ChatGPT and choose a model before sending a request.');
+              if (!chatgpt.status().signedIn || !chatgpt.status().model || (chatgpt.status().accessState && chatgpt.status().accessState !== 'ready')) fail('PROVIDER_CONFIG', chatgpt.status().message || 'Sign in with ChatGPT and choose a model before sending a request.');
               provider = { ...config, apiKey: '', chatgptToken: await chatgpt.accessToken(), model: chatgpt.status().model, endpoint: 'https://api.openai.com/v1/responses' };
+              registration = chatgpt.record.account;
             } else if (message.provider === 'api_key') {
               if (!config.apiKey || !config.model) fail('PROVIDER_CONFIG', 'Configure an API key and model before choosing separate API billing.');
               provider = config;
@@ -177,6 +191,7 @@ export async function startCompanion(config, { fetchImpl = fetch, authTimeout = 
             send(ws, { type: 'prompt_result', id: message.id, result });
           } catch (error) {
             send(ws, { type: 'prompt_result', id: message.id, error: safeError(error) });
+            if (message.provider === 'chatgpt' && chatgpt.recordError) { await chatgpt.recordError(error, registration); send(ws, chatgptStatus()); onStatus(status()); }
           } finally { connection.promptController = null; }
         } else fail('METHOD', 'Invalid browser operation.');
       } catch {
@@ -189,6 +204,25 @@ export async function startCompanion(config, { fetchImpl = fetch, authTimeout = 
   port = server.address().port;
   return {
     port,
+    status: () => ({ ...status(), chatgpt: chatgpt.status() }),
+    approvePairing(request) {
+      if (!desktopPairing || browser) fail('BUSY', 'Disconnect the current Foundry session before pairing another.');
+      const url = new URL('tablewright://pair');
+      for (const [key, value] of Object.entries(request)) url.searchParams.set(key, value);
+      pairing = { ...parsePairing(url.href), expiresAt: Date.now() + 120000 };
+    },
+    disconnect() { pairing = null; browser?.ws.close(1000, 'Reconnect from Foundry'); },
+    async signIn() {
+      if (!openAuthorization) fail('CHATGPT_AUTH', 'Start sign-in from Foundry.');
+      await openAuthorization(await chatgpt.begin(`http://127.0.0.1:${port}/auth/callback`));
+    },
+    async signOut() {
+      browser?.promptController?.abort();
+      const result = await chatgpt.signOut();
+      if (browser?.authenticated) send(browser.ws, chatgptStatus());
+      onStatus(status());
+      return result;
+    },
     async close() {
       for (const ws of wss.clients) ws.terminate();
       await new Promise(resolve => wss.close(resolve));

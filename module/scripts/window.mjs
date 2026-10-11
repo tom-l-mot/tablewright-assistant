@@ -14,7 +14,7 @@ export function createWindow(adapter, plans, connection) {
       this.authUrl = '';
       this.providerChoice = 'chatgpt';
       this.apiKeyChosen = false;
-      this.status = 'Disconnected. Start the local companion, then enter its pairing token.';
+      this.status = 'Open Tablewright Connector, then click Pair desktop.';
       this.busy = false;
       this.focusId = 'assistant-prompt';
     }
@@ -52,7 +52,7 @@ export function createWindow(adapter, plans, connection) {
 
     async _renderHTML() {
       const result = document.createElement('div');
-      result.innerHTML = windowMarkup({ url: this.url, prompt: this.promptText, party: this.party, response: this.response, status: this.status, busy: this.busy, connectionState: connection.state, providerConfigured: connection.providerConfigured, apiKeyConfigured: connection.apiKeyConfigured, providerChoice: this.providerChoice, chatgpt: connection.chatgpt, authUrl: this.authUrl, plans: plans.list() });
+      result.innerHTML = windowMarkup({ url: this.url, pairingCode: connection.pairingChallenge?.slice(0, 8), prompt: this.promptText, party: this.party, response: this.response, status: this.status, busy: this.busy, connectionState: connection.state, providerConfigured: connection.providerConfigured, apiKeyConfigured: connection.apiKeyConfigured, providerChoice: this.providerChoice, chatgpt: connection.chatgpt, authUrl: this.authUrl, plans: plans.list() });
       return result;
     }
 
@@ -63,13 +63,7 @@ export function createWindow(adapter, plans, connection) {
       const element = this.element;
       element.querySelector('[data-form="connection"]').addEventListener('submit', event => {
         event.preventDefault();
-        const tokenInput = element.querySelector('#assistant-token');
-        const token = tokenInput.value;
-        const endpoint = element.querySelector('#assistant-url').value;
-        tokenInput.value = '';
-        void this.run(async () => { await connection.connect(endpoint, token); this.status = 'Connected. MCP can propose plans. Review and approve them here.'; }).then(() => {
-          if (connection.connected && connection.apiKeyConfigured && !connection.chatgpt.signedIn && !connection.chatgpt.email && !this.apiKeyChosen) { this.providerChoice = 'api_key'; void this.refresh(); }
-        });
+        void this.run(async () => { await connection.connect(); this.status = 'Desktop connected. Continue with ChatGPT, then review and approve proposals here.'; });
       });
       element.querySelector('[data-form="prompt"]').addEventListener('submit', event => {
         event.preventDefault();
@@ -91,12 +85,22 @@ export function createWindow(adapter, plans, connection) {
       });
       for (const button of element.querySelectorAll('[data-action]')) button.addEventListener('click', event => {
         const action = button.dataset.action;
-        if (action === 'disconnect') {
+        if (action === 'pair') {
+          try {
+            globalThis.location.assign(connection.pairingURL());
+            this.status = 'Confirm the matching site and pairing code in Tablewright Connector, then click Connect desktop within two minutes.';
+            void this.refresh();
+          } catch (error) { this.status = safeError(error).message; void this.refresh(); }
+        } else if (action === 'disconnect') {
           connection.disconnect();
           this.status = 'Disconnected. Pending plans remain in this browser session.';
           void this.refresh();
         } else if (action === 'chatgpt-begin') {
-          void this.run(async () => { this.authUrl = await connection.beginChatGPT(); this.status = 'Open the ChatGPT sign-in link, then return to Foundry.'; });
+          void this.run(async () => { this.authUrl = await connection.beginChatGPT(); this.status = 'Authorize on OpenAI in your browser, then return to Foundry.'; });
+        } else if (action === 'chatgpt-enable') {
+          void this.run(async () => { this.authUrl = await connection.enableChatGPTUsage(); this.status = 'Allow ChatGPT plan usage on OpenAI, then return to Foundry.'; });
+        } else if (action === 'chatgpt-cancel') {
+          void this.run(async () => { await connection.cancelChatGPT(); this.authUrl = ''; this.status = 'Sign-in cancelled. You can start again.'; });
         } else if (action === 'chatgpt-other') {
           void this.run(async () => { this.authUrl = await connection.beginOtherChatGPT(); this.status = 'Open the ChatGPT sign-in link for another account, then return to Foundry.'; });
         } else if (action === 'chatgpt-models') {

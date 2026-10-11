@@ -1,62 +1,47 @@
 # Tablewright Assistant
 
-An AI companion for Game Masters using Pathfinder Second Edition in Foundry VTT.
+Describe an NPC, merchant, or encounter in Foundry VTT. Review the proposed sources and documents. Click **Approve creations** when the plan is right.
 
-Describe what you need, review the assistant's proposal, and approve the result inside Foundry. For example:
+Tablewright has two parts. **Tablewright Assistant** is a Foundry module. **Tablewright Connector** is a small Windows app that runs on the GM's computer and connects the module to ChatGPT. The Foundry server can be on another computer; that server does not need the desktop app.
 
-> Find a goblin NPC and turn it into Rook, a suspicious sewer guide with a short background.
+## Try the Windows test prerelease
 
-## What you can do today
+Version **0.2.0-alpha.1** is an unsigned test build. The intended [v0.2.0-alpha.1 release](https://github.com/tom-l-mot/tablewright-assistant/releases/tag/v0.2.0-alpha.1), installer, and module download are pending publication and download verification. A link here is not evidence that its asset is available yet.
 
-- Import an existing NPC with a new name and background.
-- Create a shopkeeper's merchant sheet stocked with items from installed compendiums.
-- Propose an encounter using existing creatures and calculate its PF2e XP.
-- Review each proposal before a GM approval click creates anything.
+[Follow the beginner installation guide](docs/install.md). The normal workflow uses an installer and Foundry's **Install Module** screen. You do not need Node.js, a terminal, an API key, or a manually copied pairing token.
 
-A compendium is Foundry's library of creatures or items. Version 0.1.1 uses those existing entries. Original generated statistics, token placement, and automatic combat setup are not available yet.
+Live installation and use in Foundry are still pending. The user has deferred those checks until the Leng test world is ready. The initial target is Foundry 14 with PF2e 8.5.1. The manifest permits Foundry 13 through 14 without claiming verified compatibility. Local HTTP and remote HTTPS connectivity are implemented; actual remote Foundry connectivity remains unverified. See the [evidence table](docs/verification.md).
 
-## Start here
+## What the assistant creates
 
-**[Follow the beginner installation guide for Windows](docs/install.md).**
+- An existing compendium NPC with your chosen name and background.
+- A merchant sheet stocked with existing physical items.
+- An encounter's NPC actors and a journal roster, with XP calculated in Foundry.
 
-The guide explains what to download, where to paste each command, what to expect, and how to recover when a step fails. You do not need Git or GitHub CLI.
+A compendium is Foundry's library of creatures or items. Tablewright uses installed entries and retains their statistics. It does not generate original statistics, place tokens, create scenes, or start combat.
 
-This is a development alpha. There is no release download, automatic installer, or Foundry package-directory installation yet.
+The assistant can propose a plan without creating anything. Only the GM's approval click in Foundry creates documents. Review each source and quantity before approving.
 
-The first target is Foundry 14 with PF2e 8.5.1, running on the same Windows PC as the assistant. Use a disposable test world. Live Foundry rendering, real imports, and paid AI requests remain unverified. Hosted Foundry and HTTPS connections are not supported by this alpha.
+## ChatGPT access
 
-## How the pieces connect
+The documented open-source Sign in with ChatGPT flow currently supports eligible **Plus and Pro** users. The requested ChatGPT Free experience is not met. Signing in alone does not prove that plan usage is available. [OpenAI quickstart](https://developers.openai.com/siwc/quickstart)
 
-You install two parts. The Foundry module shows the assistant window. The companion runs on your PC and connects that window to your AI.
+Tablewright reads the account's model list. It selects **GPT-5.6 Luna** only when that model is listed and no model has already been selected. That model uses **High** reasoning with **Standard** mode. If it is unavailable, choose a listed model yourself. Tablewright does not silently choose the first model, switch billing, or use a private endpoint.
 
-```mermaid
-flowchart LR
-    A["You describe what you need in Foundry"] --> B["Companion on your PC"]
-    B --> C["Your AI provider"]
-    C --> D["Proposal shown in Foundry"]
-    D --> E["You review and approve"]
-    E --> F["Foundry creates the NPC, shop, or roster"]
-```
+Requests share your ChatGPT plan limits. [ChatGPT usage settings](https://chatgpt.com/settings/usage) controls account usage and any optional credits. Real account authorization, model availability, and inference for this build are still pending verification.
 
-The beginner guide uses **Continue with ChatGPT** inside Foundry. It does not require an API key. An OpenAI API key remains optional, and the [advanced MCP instructions](docs/technical-reference.md#configure-a-local-mcp-client) cover local Codex or Claude tools.
+## Privacy and recovery
 
-## Cost and privacy
+ChatGPT credentials remain in Windows-protected storage in the desktop app. Foundry receives account status and model choices, not account tokens. A request sends your prompt and limited world and compendium metadata to OpenAI. Source stat blocks, artwork, full documents, and existing journal contents stay in Foundry. [Data-flow details](docs/technical-reference.md#understand-the-data-flow)
 
-Tablewright has no module charge. Optional donations are the intended funding approach, but a donation page has not been set up.
+If creation stops partway through, completed imports stay in the world. Keep the Foundry tab open and review **Retry missing creations**. Refreshing loses the session's pending plans and receipts. There is no automatic rollback or automatic world retry.
 
-You need your own Foundry license and AI access. Eligible ChatGPT accounts can use their plan through [Sign in with ChatGPT](https://developers.openai.com/siwc/token-sharing-open-source), subject to shared plan limits and any credits the account holder enables. The optional API-key path uses separate [API billing](https://help.openai.com/en/articles/9039756-managing-billing-settings-on-the-chatgpt-web-and-api-platform). The MCP option uses your AI client's own access and limits.
+## Project details
 
-ChatGPT credentials are protected locally by Windows for your user account. An optional API key stays in the companion's local settings. Your prompt and limited world and compendium metadata go to OpenAI when you send a model request. Full source statistics, source artwork, and existing journal contents stay in Foundry. Read the [data-flow details](docs/technical-reference.md#understand-the-data-flow) before using private campaign material.
+Tablewright's code uses the MIT license. It has no module charge; Foundry and eligible AI access remain separate prerequisites. Optional donations are intended, but no donation page is available. No official Foundry directory listing is claimed.
 
-## Need help?
-
-Start with [installation troubleshooting](docs/install.md#if-something-goes-wrong). If you are still stuck, use the [help request checklist](docs/install.md#ask-for-help) to report the failing step. Never include credentials, pairing tokens, or settings files.
-
-## For technical users and contributors
-
-- [Advanced setup and MCP configuration](docs/technical-reference.md).
-- [Verification evidence and live checklist](docs/verification.md).
-- [Architecture](docs/architecture.md).
-- [Source credits and license notices](docs/provenance.md).
-
-The code uses the MIT license. A release download, a Foundry listing, and the remaining live checks are still pending.
+- [Installation, everyday use, and troubleshooting](docs/install.md).
+- [Developer setup and the advanced MCP interface](docs/technical-reference.md).
+- [Architecture and security boundaries](docs/architecture.md).
+- [Verification results and pending live checks](docs/verification.md).
+- [Source credits and third-party notices](docs/provenance.md).

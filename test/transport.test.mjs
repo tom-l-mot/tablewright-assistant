@@ -14,10 +14,10 @@ async function serverFor(t, overrides = {}, options = {}) {
   return server;
 }
 
-test('config enforces exact HTTP Foundry origin, separate token, and explicit provider model', () => {
+test('config enforces exact HTTP or HTTPS Foundry origin, separate token, and explicit provider model', () => {
   const env = { ASSISTANT_TOKEN: token, FOUNDRY_ORIGIN: origin };
   assert.equal(companionConfig(env).apiKey, '');
-  assert.throws(() => companionConfig({ ...env, FOUNDRY_ORIGIN: 'https://localhost:30000' }), /HTTP origin/);
+  assert.equal(companionConfig({ ...env, FOUNDRY_ORIGIN: 'https://localhost:30000' }).origin, 'https://localhost:30000');
   assert.throws(() => companionConfig({ ...env, FOUNDRY_ORIGIN: origin + '/' }), /exact HTTP/);
   assert.throws(() => companionConfig({ ...env, ASSISTANT_TOKEN: 'short' }), /separate random token/);
   assert.throws(() => companionConfig({ ...env, OPENAI_API_KEY: 'not-real' }), /explicit OPENAI_MODEL/);

@@ -1,7 +1,8 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { boundedJSON } from './http-json.mjs';
-import { fail } from '../module/lib/validation.mjs';
+import { AssistantError, fail } from '../module/lib/validation.mjs';
+import { chatgptError } from './provider.mjs';
 
 const ISSUER = 'https://auth.openai.com';
 const RESOURCE = 'https://api.openai.com/v1';
@@ -9,6 +10,9 @@ const SCOPES = 'openid profile email offline_access resource.invoke chatgpt.toke
 const TOKEN_URL = `${ISSUER}/api/accounts/oauth/token`;
 const REVOKE_URL = `${ISSUER}/api/accounts/oauth/revoke`;
 const JWKS = createRemoteJWKSet(new URL(`${ISSUER}/.well-known/jwks.json`));
+const DEFAULT_MODEL = 'gpt-5.6-luna';
+const DISABLED_MESSAGE = 'ChatGPT is signed in, but plan usage is disabled. Enable app access in ChatGPT settings and sign in again.';
+const unusableRefresh = new Set(['invalid_grant', 'invalid_refresh_token', 'token_expired', 'refresh_token_expired', 'refresh_token_invalidated', 'refresh_token_reused']);
 
 const random = () => randomBytes(32).toString('base64url');
 const same = (a, b) => typeof a === 'string' && typeof b === 'string' && Buffer.byteLength(a) === Buffer.byteLength(b) && timingSafeEqual(Buffer.from(a), Buffer.from(b));
@@ -20,9 +24,10 @@ export async function verifyChatGPTIdToken(token, clientId, nonce, keys = JWKS) 
 }
 
 function credentials(value) {
-  if (!value || typeof value.access_token !== 'string' || !value.access_token || typeof value.refresh_token !== 'string' || !value.refresh_token || typeof value.id_token !== 'string' || !value.id_token || value.token_type !== 'Bearer' || !Number.isInteger(value.expires_in) || value.expires_in <= 0 || typeof value.scope !== 'string') fail('CHATGPT_AUTH', 'ChatGPT returned incomplete credentials.');
-  if (!value.scope.split(/\s+/).includes('chatgpt.tokens.use.direct')) fail('CHATGPT_SCOPE', 'ChatGPT plan usage was not authorized for this app. Allow it in ChatGPT and try again.');
-  return { accessToken: value.access_token, refreshToken: value.refresh_token, idToken: value.id_token, scopes: value.scope.split(/\s+/), expiresAt: Date.now() + value.expires_in * 1000 };
+  if (!value || typeof value.access_token !== 'string' || !value.access_token || typeof value.id_token !== 'string' || !value.id_token || value.token_type !== 'Bearer' || !Number.isInteger(value.expires_in) || value.expires_in <= 0 || typeof value.scope !== 'string') fail('CHATGPT_AUTH', 'ChatGPT returned incomplete credentials.');
+  const scopes = value.scope.split(/\s+/).filter(Boolean);
+  if (scopes.includes('chatgpt.tokens.use.direct') && (typeof value.refresh_token !== 'string' || !value.refresh_token)) fail('CHATGPT_AUTH', 'ChatGPT returned incomplete renewable credentials.');
+  return { accessToken: value.access_token, refreshToken: typeof value.refresh_token === 'string' ? value.refresh_token : '', idToken: value.id_token, scopes, expiresAt: Date.now() + value.expires_in * 1000 };
 }
 
 export class ChatGPTAuth {
@@ -48,17 +53,23 @@ export class ChatGPTAuth {
 
   status() {
     const account = this.record?.account;
-    return { signedIn: Boolean(account?.refreshToken), email: account?.email ?? '', models: account?.models ?? [], model: account?.model ?? '' };
+    const signedIn = Boolean(account?.accessToken && account?.idToken);
+    const permitted = account?.scopes?.includes('chatgpt.tokens.use.direct');
+    const model = account?.model ?? '';
+    const listed = account?.models?.some(item => item.slug === model);
+    const accessState = !signedIn ? 'signed_out' : !permitted ? 'disabled' : account.accessState ?? (listed ? 'ready' : 'unavailable');
+    const message = !signedIn ? account?.message ?? 'Sign in with ChatGPT to connect your account.' : !permitted ? DISABLED_MESSAGE : account.message ?? (!listed ? 'Choose a model listed for this ChatGPT account.' : '');
+    return { signedIn, email: account?.email ?? '', models: account?.models ?? [], model, accessState, message: message.slice(0, 200), reasoningEffort: model === DEFAULT_MODEL ? 'high' : '' };
   }
 
-  async begin(redirectUri, newAccount = false) {
+  async begin(redirectUri, newAccount = false, enableUsage = false) {
     await this.init();
-    if (!this.store) fail('CHATGPT_STORE', 'ChatGPT sign-in currently requires Windows local credential storage.');
+    if (!this.store) fail('CHATGPT_STORE', 'ChatGPT sign-in requires protected local credential storage. Start the desktop connector.');
     if (this.completing || (this.pending && Date.now() - this.pending.startedAt < 300000)) fail('BUSY', 'A ChatGPT sign-in is already in progress.');
     const state = random();
     const nonce = random();
     const verifier = random();
-    if (newAccount && this.record.account?.refreshToken) fail('CHATGPT_AUTH', 'Sign out of the current ChatGPT account first.');
+    if (newAccount && this.status().signedIn) fail('CHATGPT_AUTH', 'Sign out of the current ChatGPT account first.');
     // shortcut: one saved ChatGPT account per companion; add an account picker when switching without sign-out is needed.
     const clientId = newAccount ? (this.record.pendingClientId ?? null) : (this.record.account?.clientId ?? this.record.pendingClientId ?? null);
     this.pending = { state, nonce, verifier, redirectUri, clientId, newAccount, startedAt: Date.now() };
@@ -66,17 +77,26 @@ export class ChatGPTAuth {
     const params = { client_id: clientId ?? 'dynamic_agent_client', ext_agent_host_id: this.record.hostId, response_type: 'code', redirect_uri: redirectUri, scope: SCOPES, resource: RESOURCE, state, nonce, code_challenge_method: 'S256', code_challenge: createHash('sha256').update(verifier).digest('base64url') };
     if (!clientId) params.agent_name_hint = 'Tablewright Assistant';
     if (clientId && this.record.account?.email && !newAccount) params.login_hint = this.record.account.email;
+    if (enableUsage) params.prompt = 'consent';
     for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
     return url.href;
   }
 
   async #token(params) {
     let response;
+    const fallbackMessage = params.grant_type === 'refresh_token' ? 'ChatGPT renewal failed. Your connection is retained. Try again later.' : 'ChatGPT sign-in or renewal failed. Try signing in again.';
     try {
       response = await this.fetchImpl(TOKEN_URL, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(15000), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(params) });
-      if (!response.ok) throw new Error('token exchange failed');
+      if (!response.ok) {
+        let body;
+        try { body = await boundedJSON(response.body, 32768); } catch { body = null; }
+        throw chatgptError(body, { status: response.status, requestId: response.headers.get('x-request-id'), fallbackCode: 'CHATGPT_AUTH', fallbackMessage });
+      }
       return await boundedJSON(response.body, 32768);
-    } catch { fail('CHATGPT_AUTH', 'ChatGPT sign-in or renewal failed. Try signing in again.'); }
+    } catch (error) {
+      if (error instanceof AssistantError && error.code !== 'JSON' && error.code !== 'PAYLOAD') throw error;
+      fail('CHATGPT_AUTH', fallbackMessage);
+    }
   }
 
   async callback(url) {
@@ -113,25 +133,51 @@ export class ChatGPTAuth {
       await this.#revoke(tokens.refreshToken, clientId);
       fail('CHATGPT_AUTH', 'ChatGPT returned a different account.');
     }
-    const candidate = { clientId, ...identity, ...tokens, models: [], model: '' };
-    this.record = { ...this.record, account: candidate, pendingClientId: null };
-    await this.store.save(this.record);
-    await this.loadModels();
-    return this.status();
+    const retainedModel = pending.clientId && !pending.newAccount ? this.record.account?.model ?? '' : '';
+    const previousAccount = this.record.account;
+    const candidate = { clientId, ...identity, ...tokens, models: [], model: retainedModel };
+    try {
+      this.record = { ...this.record, account: candidate, pendingClientId: null };
+      await this.store.save(this.record);
+      if (epoch !== this.authEpoch) fail('CHATGPT_AUTH', 'This ChatGPT sign-in was cancelled.');
+      if (tokens.scopes.includes('chatgpt.tokens.use.direct')) await this.loadModels();
+      if (epoch !== this.authEpoch) fail('CHATGPT_AUTH', 'This ChatGPT sign-in was cancelled.');
+      return this.status();
+    } finally {
+      if (epoch !== this.authEpoch) {
+        await this.#revoke(tokens.refreshToken, clientId);
+        this.record = { ...this.record, account: previousAccount };
+        await this.store.save(this.record);
+      }
+    }
   }
 
   async accessToken() {
     await this.init();
     const account = this.record.account;
-    if (!account?.refreshToken) fail('CHATGPT_AUTH', 'Sign in with ChatGPT to use your plan.');
+    if (!this.status().signedIn) fail('CHATGPT_AUTH', 'Sign in with ChatGPT to use your plan.');
+    if (!account.scopes?.includes('chatgpt.tokens.use.direct')) fail('CHATGPT_SCOPE', DISABLED_MESSAGE);
     if (account.expiresAt > Date.now() + 60000) return account.accessToken;
+    const epoch = this.authEpoch;
     if (!this.refreshing) this.refreshing = (async () => {
-      const token = await this.#token({ grant_type: 'refresh_token', client_id: account.clientId, refresh_token: account.refreshToken, resource: RESOURCE });
-      const replacement = credentials({ ...token, id_token: account.idToken });
+      let token;
+      try { token = await this.#token({ grant_type: 'refresh_token', client_id: account.clientId, refresh_token: account.refreshToken, resource: RESOURCE }); }
+      catch (error) {
+        if (unusableRefresh.has(error.code) && this.record.account === account && epoch === this.authEpoch) {
+          this.record = { ...this.record, account: { clientId: account.clientId, subject: account.subject, email: account.email, models: [], model: '', message: 'The ChatGPT session expired or was disconnected. Sign in again to reconnect.' } };
+          await this.store.save(this.record);
+        }
+        throw error;
+      }
+      const replacement = credentials({ ...token, scope: token.scope ?? account.scopes.join(' '), id_token: account.idToken });
       const current = this.record.account;
-      if (current !== account) fail('CHATGPT_AUTH', 'The ChatGPT account changed during renewal.');
+      if (current !== account || epoch !== this.authEpoch) {
+        await this.#revoke(replacement.refreshToken, account.clientId);
+        fail('CHATGPT_AUTH', 'The ChatGPT account changed during renewal.');
+      }
       this.record = { ...this.record, account: { ...account, ...replacement } };
       await this.store.save(this.record);
+      if (!replacement.scopes.includes('chatgpt.tokens.use.direct')) fail('CHATGPT_SCOPE', DISABLED_MESSAGE);
       return replacement.accessToken;
     })().finally(() => { this.refreshing = null; });
     return this.refreshing;
@@ -140,26 +186,54 @@ export class ChatGPTAuth {
   async loadModels() {
     const token = await this.accessToken();
     const account = this.record.account;
+    const epoch = this.authEpoch;
     let response;
     let body;
     try {
       response = await this.fetchImpl(`${RESOURCE}/models`, { redirect: 'error', signal: AbortSignal.timeout(15000), headers: { Authorization: `Bearer ${token}` } });
-      if (!response.ok) throw new Error('model catalog failed');
+      if (!response.ok) {
+        let errorBody;
+        try { errorBody = await boundedJSON(response.body, 32768); } catch { errorBody = null; }
+        throw chatgptError(errorBody, { status: response.status, requestId: response.headers.get('x-request-id'), fallbackCode: 'CHATGPT_MODELS', fallbackMessage: 'Could not load models for this ChatGPT account. Try again later.' });
+      }
       body = await boundedJSON(response.body, 131072);
-    } catch { fail('CHATGPT_MODELS', 'Could not load models for this ChatGPT account. Try signing in again.'); }
+    } catch (error) {
+      const safe = error instanceof AssistantError && error.code !== 'JSON' && error.code !== 'PAYLOAD' ? error : new AssistantError('CHATGPT_MODELS', 'Could not load models for this ChatGPT account. Try again later.');
+      if (this.record.account === account && epoch === this.authEpoch) await this.recordError(safe);
+      throw safe;
+    }
     const models = Array.isArray(body.models) ? body.models.filter(item => item?.visibility === 'list' && typeof item.slug === 'string' && /^[A-Za-z0-9._-]{1,100}$/.test(item.slug) && typeof item.display_name === 'string').slice(0, 100).map(item => ({ slug: item.slug, name: item.display_name.slice(0, 100) })) : [];
-    if (!models.length) fail('CHATGPT_MODELS', 'No supported models are available to this ChatGPT account.');
-    if (this.record.account !== account) fail('CHATGPT_AUTH', 'The ChatGPT account changed while loading models.');
-    const model = models.some(item => item.slug === account.model) ? account.model : models[0].slug;
-    this.record = { ...this.record, account: { ...account, models, model } };
+    if (this.record.account !== account || epoch !== this.authEpoch) fail('CHATGPT_AUTH', 'The ChatGPT account changed while loading models.');
+    const model = account.model || (models.some(item => item.slug === DEFAULT_MODEL) ? DEFAULT_MODEL : '');
+    const listed = models.some(item => item.slug === model);
+    const message = !models.length ? 'No models are listed for this ChatGPT account. Refresh the catalog later.' : model && !listed ? 'The selected model is unavailable for this ChatGPT account. Choose a listed model. No replacement was selected.' : !model ? 'GPT-5.6 Luna is unavailable. Choose a listed model. High reasoning support for other models has not been verified.' : model !== DEFAULT_MODEL ? 'High reasoning support for this model has not been verified. The model default will be used.' : '';
+    this.record = { ...this.record, account: { ...account, models, model, accessState: listed ? 'ready' : 'unavailable', message } };
     await this.store.save(this.record);
     return this.status();
   }
 
   async selectModel(slug) {
     if (!this.record?.account?.models.some(model => model.slug === slug)) fail('CHATGPT_MODELS', 'Choose a model listed for this ChatGPT account.');
-    this.record = { ...this.record, account: { ...this.record.account, model: slug } };
+    const restricted = ['ineligible', 'usage_limited', 'disabled'].includes(this.status().accessState);
+    this.record = { ...this.record, account: { ...this.record.account, model: slug, ...(!restricted ? { accessState: 'ready', message: slug === DEFAULT_MODEL ? '' : 'High reasoning support for this model has not been verified. The model default will be used.' } : {}) } };
     await this.store.save(this.record);
+    return this.status();
+  }
+
+  async recordError(error, registration = this.record?.account) {
+    const account = this.record?.account;
+    if (!this.status().signedIn || account !== registration) return this.status();
+    const safe = error instanceof AssistantError ? error : new AssistantError('PROVIDER', 'The ChatGPT request failed. Check the connection and try again later.');
+    this.record = { ...this.record, account: { ...account, accessState: safe.accessState ?? 'unavailable', message: safe.message.slice(0, 200) } };
+    await this.store.save(this.record);
+    return this.status();
+  }
+
+  async cancel() {
+    if (!this.pending && !this.completing) return this.status();
+    this.pending = null;
+    this.authEpoch++;
+    if (this.completing) await this.completing.catch(() => {});
     return this.status();
   }
 
@@ -170,8 +244,8 @@ export class ChatGPTAuth {
     if (this.completing) await this.completing.catch(() => {});
     if (this.refreshing) await this.refreshing.catch(() => {});
     const account = this.record.account;
-    if (!account?.refreshToken) return { ...this.status(), revoked: true };
-    const revoked = await this.#revoke(account.refreshToken, account.clientId);
+    if (!account?.accessToken && !account?.idToken && !account?.refreshToken) return { ...this.status(), revoked: true };
+    const revoked = account.refreshToken ? await this.#revoke(account.refreshToken, account.clientId) : true;
     this.record = { ...this.record, account: { clientId: account.clientId, subject: account.subject, email: account.email, models: [], model: '' } };
     await this.store.save(this.record);
     return { ...this.status(), revoked };

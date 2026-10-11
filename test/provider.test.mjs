@@ -4,6 +4,7 @@ import http from 'node:http';
 import { once } from 'node:events';
 import { startCompanion } from '../companion/server.mjs';
 import { runProvider } from '../companion/provider.mjs';
+import { safeError } from '../module/lib/validation.mjs';
 import { config, fakeGM, memoryCredentialStore } from './transport-fixture.mjs';
 import { npcRequest, actorUUID } from './fake-foundry.mjs';
 
@@ -111,4 +112,85 @@ test('provider cancellation stops a wait for an outstanding Foundry tool', { tim
     await assert.rejects(runProvider({ ...config, apiKey: key, model: 'fake' }, 'Already cancelled', null, async name => { routed.push(name); }, { signal: controller.signal, fetchImpl: async () => new Response(JSON.stringify({ output: [functionCall('aborted', 'world_context', {})] })) }), error => error.code === 'PROVIDER_TIMEOUT');
     assert.deepEqual(routed, ['world_context']);
   } finally { clearTimeout(timer); }
+});
+
+const chatgptConfig = { chatgptToken: 'oauth-secret', apiKey: 'api-secret', model: 'gpt-5.6-luna', endpoint: 'https://api.openai.com/v1/responses' };
+const stream = value => `data: ${JSON.stringify(value)}\n\n`;
+
+test('Luna sends High standard on every public Responses turn without API fallback', async () => {
+  const bodies = [];
+  const result = await runProvider(chatgptConfig, 'hello', null, async () => ({}), { fetchImpl: async (url, options) => {
+    assert.equal(url, 'https://api.openai.com/v1/responses');
+    assert.equal(options.headers.Authorization, 'Bearer oauth-secret');
+    const body = JSON.parse(options.body);
+    bodies.push(body);
+    return new Response(stream({ type: 'response.completed', response: { status: 'completed', output: bodies.length === 1 ? [functionCall('1', 'world_context', {})] : [message('Ready')] } }));
+  } });
+  assert.equal(result.text, 'Ready');
+  assert.equal(bodies.length, 2);
+  for (const body of bodies) assert.deepEqual(body.reasoning, { effort: 'high', mode: 'standard' });
+  await runProvider({ ...chatgptConfig, model: 'other-listed-model' }, 'hello', null, async () => ({}), { fetchImpl: async (_url, options) => {
+    assert.equal(Object.hasOwn(JSON.parse(options.body), 'reasoning'), false);
+    return new Response(stream({ type: 'response.completed', response: { status: 'completed', output: [message('Ready')] } }));
+  } });
+  let requests = 0;
+  await assert.rejects(runProvider({ ...chatgptConfig, endpoint: 'https://chatgpt.com/backend-api/codex/responses' }, 'hello', null, async () => ({}), { fetchImpl: async () => { requests++; } }), error => error.code === 'PROVIDER_CONFIG');
+  assert.equal(requests, 0);
+});
+
+test('structured HTTP and stream usage failures preserve safe recovery metadata and never expose response bodies', async () => {
+  const cases = [
+    ['subscription_sharing_user_not_eligible', 403, 'ineligible'],
+    ['subscription_sharing_usage_limit_exceeded', 429, 'usage_limited'],
+    ['subscription_sharing_usage_unavailable', 503, 'unavailable'],
+    ['subscription_sharing_user_unavailable', 503, 'unavailable'],
+    ['subscription_sharing_unsupported_capability', 400, 'unavailable'],
+    ['subscription_sharing_route_not_supported', 403, 'unavailable'],
+    ['subscription_sharing_invalid_user', 401, 'unavailable'],
+    ['chatpass_v2_scope_not_authorized', 403, 'disabled'],
+    ['chatpass_v2_invalid_authorization_context', 403, 'disabled']
+  ];
+  for (const [code, status, accessState] of cases) {
+    for (const streamed of [false, true]) {
+      let requests = 0;
+      const errorBody = { error: { code, message: 'Never expose oauth-secret or api-secret', param: 'reasoning.effort', secret: 'oauth-secret' } };
+      await assert.rejects(runProvider(chatgptConfig, 'hello', null, async () => ({}), { fetchImpl: async () => {
+        requests++;
+        return new Response(streamed ? stream({ type: 'response.output_text.delta', delta: 'partial' }) + stream({ type: 'response.failed', response: errorBody }) : JSON.stringify(errorBody), { status: streamed ? 200 : status, headers: { 'x-request-id': 'req_safe' } });
+      } }), error => {
+        assert.equal(error.code, code);
+        assert.equal(error.upstreamCode, code);
+        assert.equal(error.status, streamed ? 200 : status);
+        assert.equal(error.requestId, 'req_safe');
+        assert.equal(error.param, 'reasoning.effort');
+        assert.equal(error.accessState, accessState);
+        assert.equal(error.bodyShape, 'error');
+        assert.equal(error.message.length <= 200, true);
+        assert.equal(JSON.stringify(error).includes('oauth-secret'), false);
+        assert.equal(JSON.stringify(error).includes('api-secret'), false);
+        assert.deepEqual(Object.keys(safeError(error)), ['code', 'message']);
+        return true;
+      });
+      assert.equal(requests, 1);
+    }
+  }
+});
+
+test('admission detail errors retain HTTP status and request ID with bounded safe messages', async () => {
+  for (const status of [401, 403, 503]) {
+    await assert.rejects(runProvider(chatgptConfig, 'hello', null, async () => ({}), { fetchImpl: async () => new Response(JSON.stringify({ detail: `Do not expose oauth-secret ${'x'.repeat(1000)}` }), { status, headers: { 'x-request-id': 'req_admission' } }) }), error => {
+      assert.equal(error.status, status);
+      assert.equal(error.requestId, 'req_admission');
+      assert.equal(error.bodyShape, 'detail');
+      assert.equal(error.message.includes('oauth-secret'), false);
+      assert.equal(error.message.length <= 200, true);
+      assert.equal(error.upstreamCode, undefined);
+      return true;
+    });
+  }
+});
+
+test('explicit stream errors fail safely and incomplete responses remain distinct from usage limits', async () => {
+  await assert.rejects(runProvider(chatgptConfig, 'hello', null, async () => ({}), { fetchImpl: async () => new Response(stream({ type: 'error', code: 'subscription_sharing_usage_limit_exceeded', message: 'oauth-secret' })) }), error => error.code === 'subscription_sharing_usage_limit_exceeded');
+  await assert.rejects(runProvider(chatgptConfig, 'hello', null, async () => ({}), { fetchImpl: async () => new Response(stream({ type: 'response.incomplete', response: { incomplete_details: { reason: 'oauth-secret' } } })) }), error => error.code === 'PROVIDER_INCOMPLETE' && !error.message.includes('oauth-secret'));
 });

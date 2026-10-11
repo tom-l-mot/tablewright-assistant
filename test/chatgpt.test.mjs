@@ -1,15 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { execFileSync } from 'node:child_process';
 import { WebSocket } from 'ws';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
-import { mkdtemp, rm, readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join, resolve, sep } from 'node:path';
 import { ChatGPTAuth, verifyChatGPTIdToken } from '../companion/chatgpt-auth.mjs';
-import { chatgptStore } from '../companion/chatgpt-store.mjs';
 import { runProvider } from '../companion/provider.mjs';
+import { AssistantError } from '../module/lib/validation.mjs';
 import { startCompanion } from '../companion/server.mjs';
 import { BrowserConnection } from '../module/scripts/connection.mjs';
 import { windowMarkup } from '../module/scripts/ui.mjs';
@@ -17,25 +13,7 @@ import { fakeFoundry } from './fake-foundry.mjs';
 import { config, origin, connectBrowser, memoryCredentialStore } from './transport-fixture.mjs';
 
 const tokenResponse = suffix => ({ access_token: `access-${suffix}`, refresh_token: `refresh-${suffix}`, id_token: `id-${suffix}`, token_type: 'Bearer', expires_in: 3600, scope: 'openid profile email offline_access resource.invoke chatgpt.tokens.use.direct' });
-const catalog = { models: [{ slug: 'test-model', display_name: 'Test Model', visibility: 'list' }, { slug: 'hidden', display_name: 'Hidden', visibility: 'hidden' }] };
-
-test('Windows credential file is DPAPI protected and survives a process read', { skip: process.platform !== 'win32' }, async t => {
-  const directory = await mkdtemp(join(tmpdir(), 'tablewright-store-test-'));
-  assert.equal(resolve(directory).startsWith(resolve(tmpdir()) + sep), true);
-  t.after(() => rm(directory, { recursive: true, force: true }));
-  const store = chatgptStore(directory);
-  await store.save({ hostId: 'test-host', secret: 'fake-refresh-secret' });
-  assert.deepEqual(await store.load(), { hostId: 'test-host', secret: 'fake-refresh-secret' });
-  await store.save({ hostId: 'test-host', secret: 'rotated-secret' });
-  assert.deepEqual(await store.load(), { hostId: 'test-host', secret: 'rotated-secret' });
-  assert.equal((await readFile(join(directory, 'chatgpt-credentials.dpapi'), 'utf8')).includes('fake-refresh-secret'), false);
-  const release = await store.lock();
-  const probe = `import { chatgptStore } from ${JSON.stringify(new URL('../companion/chatgpt-store.mjs', import.meta.url).href)}; try { const release = await chatgptStore(process.argv[1]).lock(); process.stdout.write('acquired'); await release(); } catch { process.stdout.write('blocked'); }`;
-  const checkOtherProcess = () => execFileSync(process.execPath, ['--input-type=module', '-e', probe, directory], { encoding: 'utf8' });
-  assert.equal(checkOtherProcess(), 'blocked');
-  await release();
-  assert.equal(checkOtherProcess(), 'acquired');
-});
+const catalog = { models: [{ slug: 'gpt-5.6-luna', display_name: 'GPT-5.6 Luna', visibility: 'list' }, { slug: 'hidden', display_name: 'Hidden', visibility: 'hidden' }] };
 
 test('ID token verification requires a signed expiration claim', async () => {
   const { publicKey, privateKey } = await generateKeyPair('RS256');
@@ -103,7 +81,7 @@ test('another-account retry reuses its issued ID while returning sign-in keeps t
   success.searchParams.set('code', 'good');
   success.searchParams.set('state', retry.searchParams.get('state'));
   success.searchParams.set('client_id', 'oaiapp_B');
-  assert.deepEqual(await auth.callback(success), { signedIn: true, email: 'b@example.test', models: [{ slug: 'test-model', name: 'Test Model' }], model: 'test-model' });
+  assert.deepEqual(await auth.callback(success), { signedIn: true, email: 'b@example.test', models: [{ slug: 'gpt-5.6-luna', name: 'GPT-5.6 Luna' }], model: 'gpt-5.6-luna', accessState: 'ready', message: '', reasoningEffort: 'high' });
   assert.equal((await store.load()).account.clientId, 'oaiapp_B');
   assert.equal((await store.load()).account.subject, 'account-B');
   assert.equal((await store.load()).pendingClientId, null);
@@ -142,6 +120,65 @@ test('sign-out invalidates a pending callback, including an in-flight code excha
   assert.equal(auth.status().signedIn, false);
 });
 
+test('cancel invalidates an in-flight authorization without signing out the saved account', async () => {
+  let started;
+  let finish;
+  const exchanging = new Promise(resolve => { started = resolve; });
+  const gate = new Promise(resolve => { finish = resolve; });
+  const store = memoryCredentialStore();
+  const account = { clientId: 'oaiapp_issued', subject: 'gm', email: 'gm@example.test', ...{ accessToken: 'old', idToken: 'old-id', refreshToken: 'old-refresh', scopes: ['chatgpt.tokens.use.direct'], model: 'gpt-5.6-luna', models: catalog.models } };
+  await store.save({ hostId: 'urn:uuid:synthetic', account });
+  const auth = new ChatGPTAuth({ store, fetchImpl: async url => {
+    if (url.endsWith('/oauth/token')) { started(); await gate; return new Response(JSON.stringify(tokenResponse('cancelled'))); }
+    return new Response();
+  }, verifyIdToken: async () => ({ subject: 'gm', email: 'gm@example.test' }) });
+  const redirect = 'http://127.0.0.1:33333/auth/callback';
+  const authorization = new URL(await auth.begin(redirect));
+  const callback = new URL(redirect);
+  for (const [key, value] of Object.entries({ code: 'synthetic', state: authorization.searchParams.get('state'), client_id: 'oaiapp_issued' })) callback.searchParams.set(key, value);
+  const completion = auth.callback(callback);
+  await exchanging;
+  const cancellation = auth.cancel();
+  finish();
+  await assert.rejects(completion, /cancelled/);
+  await cancellation;
+  assert.equal(auth.record.account.accessToken, 'old');
+  assert.equal(auth.status().signedIn, true);
+  assert.equal(auth.pending, null);
+});
+
+test('cancel during credential persistence restores the prior authorization', async () => {
+  let entered;
+  let release;
+  const saving = new Promise(resolve => { entered = resolve; });
+  const gate = new Promise(resolve => { release = resolve; });
+  const store = memoryCredentialStore();
+  const originalSave = store.save;
+  store.save = async record => {
+    if (record.account?.accessToken === 'access-new') { entered(); await gate; }
+    await originalSave(record);
+  };
+  const revoked = [];
+  const auth = new ChatGPTAuth({ store, fetchImpl: async (url, options) => {
+    if (url.endsWith('/oauth/token')) return new Response(JSON.stringify(tokenResponse('new')));
+    if (url.endsWith('/oauth/revoke')) revoked.push(new URLSearchParams(options.body).get('token'));
+    return new Response(JSON.stringify(catalog));
+  }, verifyIdToken: async () => ({ subject: 'gm', email: 'gm@example.test' }) });
+  const redirect = 'http://127.0.0.1:33333/auth/callback';
+  const authorization = new URL(await auth.begin(redirect));
+  const callback = new URL(redirect);
+  for (const [key, value] of Object.entries({ code: 'synthetic', state: authorization.searchParams.get('state'), client_id: 'oaiapp_issued' })) callback.searchParams.set(key, value);
+  const completion = auth.callback(callback);
+  await saving;
+  const cancellation = auth.cancel();
+  release();
+  await assert.rejects(completion, /cancelled/);
+  await cancellation;
+  assert.equal(auth.status().signedIn, false);
+  assert.equal((await store.load()).account, null);
+  assert.deepEqual(revoked, ['refresh-new']);
+});
+
 function fakeOpenAI() {
   const calls = [];
   const fetchImpl = async (url, options) => {
@@ -169,7 +206,7 @@ test('ChatGPT OAuth checks state, uses issued client ID and PKCE, selects listed
   await assert.rejects(auth.callback(new URL(`${redirect}?code=wrong&state=wrong&client_id=oaiapp_test`)), /did not match/);
   const callback = new URL(`${redirect}?code=good&client_id=oaiapp_test`);
   callback.searchParams.set('state', url.searchParams.get('state'));
-  assert.equal((await auth.callback(callback)).model, 'test-model');
+  assert.equal((await auth.callback(callback)).model, 'gpt-5.6-luna');
   assert.deepEqual(verified, [['id-initial', 'oaiapp_test', url.searchParams.get('nonce')]]);
   const exchange = openai.calls.find(call => call.url.endsWith('/oauth/token'));
   const form = new URLSearchParams(exchange.options.body);
@@ -289,4 +326,162 @@ test('ChatGPT Responses uses supported streamed payload and requires a completed
   }
   assert.equal(bodies[1].input.some(item => item.type === 'function_call_output' && item.call_id === 'call-1'), true);
   await assert.rejects(runProvider({ chatgptToken: 'test-access', model: 'test-model', endpoint: 'https://api.openai.com/v1/responses' }, 'hello', null, async () => ({}), { fetchImpl: async () => new Response('event: response.output_text.delta\ndata: {"type":"response.output_text.delta","delta":"partial"}\n\n') }), /ended before completing/);
+});
+
+async function signedInAuth(fetchImpl, tokens = tokenResponse('test')) {
+  const store = memoryCredentialStore();
+  const auth = new ChatGPTAuth({ store, fetchImpl: async (url, options) => url.endsWith('/oauth/token') ? new Response(JSON.stringify(tokens)) : fetchImpl(url, options), verifyIdToken: async () => ({ subject: 'gm', email: 'gm@example.test' }) });
+  const redirect = 'http://127.0.0.1:33333/auth/callback';
+  const authorization = new URL(await auth.begin(redirect));
+  const callback = new URL(redirect);
+  callback.searchParams.set('state', authorization.searchParams.get('state'));
+  callback.searchParams.set('client_id', 'oaiapp_test');
+  callback.searchParams.set('code', 'test-code');
+  await auth.callback(callback);
+  return { auth, store };
+}
+
+test('identity-only sign-in remains connected without permission, models, or inference access', async () => {
+  let requests = 0;
+  const { auth, store } = await signedInAuth(async () => { requests++; throw new Error('No catalog request is authorized'); }, { ...tokenResponse('identity'), scope: 'openid profile email', refresh_token: undefined });
+  assert.equal(auth.status().signedIn, true);
+  assert.equal(auth.status().accessState, 'disabled');
+  assert.match(auth.status().message, /Enable app access/);
+  assert.deepEqual(auth.status().models, []);
+  assert.equal((await store.load()).account.subject, 'gm');
+  await assert.rejects(auth.accessToken(), error => error.code === 'CHATGPT_SCOPE');
+  await assert.rejects(auth.loadModels(), error => error.code === 'CHATGPT_SCOPE');
+  assert.equal(requests, 0);
+  const ordinary = new URL(await auth.begin('http://127.0.0.1:33333/auth/callback'));
+  assert.equal(ordinary.searchParams.has('prompt'), false);
+  auth.pending = null;
+  const enabling = new URL(await auth.begin('http://127.0.0.1:33333/auth/callback', false, true));
+  assert.equal(enabling.searchParams.get('client_id'), 'oaiapp_test');
+  assert.equal(enabling.searchParams.get('prompt'), 'consent');
+  assert.equal(enabling.searchParams.get('scope').includes('chatgpt.tokens.use.direct'), true);
+  assert.equal(enabling.searchParams.has('id_token_hint'), false);
+  assert.equal((await auth.signOut()).signedIn, false);
+  assert.equal((await store.load()).account.idToken, undefined);
+});
+
+test('catalog defaults only to listed Luna and never replaces an explicit unavailable selection', async () => {
+  let models = [{ slug: 'expensive-first', display_name: 'Expensive first', visibility: 'list' }, ...catalog.models];
+  const { auth } = await signedInAuth(async () => new Response(JSON.stringify({ models })), { ...tokenResponse('test'), plan: 'free' });
+  assert.equal(auth.status().model, 'gpt-5.6-luna');
+  assert.equal(auth.status().reasoningEffort, 'high');
+  assert.equal(auth.status().accessState, 'ready');
+  await auth.selectModel('expensive-first');
+  assert.equal(auth.status().reasoningEffort, '');
+  assert.match(auth.status().message, /not been verified/);
+  models = catalog.models;
+  await auth.loadModels();
+  assert.equal(auth.status().model, 'expensive-first');
+  assert.equal(auth.status().accessState, 'unavailable');
+  assert.match(auth.status().message, /No replacement/);
+  await assert.rejects(auth.selectModel('expensive-first'), /listed/);
+  models = [{ slug: 'expensive-first', display_name: 'Expensive first', visibility: 'list' }];
+  const { auth: noLuna } = await signedInAuth(async () => new Response(JSON.stringify({ models })));
+  assert.equal(noLuna.status().model, '');
+  assert.equal(noLuna.status().accessState, 'unavailable');
+  assert.match(noLuna.status().message, /Choose a listed model/);
+});
+
+test('confirmed unusable refresh clears tokens and transient renewal preserves credentials', async () => {
+  for (const code of ['invalid_grant', 'invalid_refresh_token', 'token_expired', 'refresh_token_expired', 'refresh_token_invalidated', 'refresh_token_reused', 'invalid_client', 'temporary_failure']) {
+    const { auth, store } = await signedInAuth(async () => new Response(JSON.stringify(catalog)));
+    auth.record.account.expiresAt = 0;
+    auth.fetchImpl = async () => new Response(JSON.stringify({ error: code, error_description: 'Do not expose credential-secret' }), { status: code === 'temporary_failure' ? 503 : 400, headers: { 'x-request-id': 'req_renewal' } });
+    await assert.rejects(auth.accessToken(), error => {
+      assert.equal(error.message.includes('credential-secret'), false);
+      assert.equal(error.status, code === 'temporary_failure' ? 503 : 400);
+      assert.equal(error.requestId, 'req_renewal');
+      return true;
+    });
+    const saved = (await store.load()).account;
+    assert.equal(saved.clientId, 'oaiapp_test');
+    const terminal = !['invalid_client', 'temporary_failure'].includes(code);
+    assert.equal(auth.status().signedIn, !terminal);
+    assert.equal(Boolean(saved.refreshToken), !terminal);
+    if (terminal) assert.equal(saved.idToken, undefined);
+  }
+});
+
+test('sign-out prevents in-flight refresh from restoring tokens and revokes the replacement', async () => {
+  const { auth, store } = await signedInAuth(async () => new Response(JSON.stringify(catalog)));
+  auth.record.account.expiresAt = 0;
+  let started;
+  let release;
+  const ready = new Promise(resolve => { started = resolve; });
+  const gate = new Promise(resolve => { release = resolve; });
+  const revoked = [];
+  auth.fetchImpl = async (url, options) => {
+    if (url.endsWith('/oauth/token')) { started(); await gate; return new Response(JSON.stringify(tokenResponse('rotated'))); }
+    revoked.push(new URLSearchParams(options.body).get('token'));
+    return new Response();
+  };
+  const refresh = auth.accessToken();
+  await ready;
+  const signingOut = auth.signOut();
+  release();
+  await assert.rejects(refresh, /changed during renewal/);
+  await signingOut;
+  assert.equal(auth.status().signedIn, false);
+  assert.equal((await store.load()).account.refreshToken, undefined);
+  assert.equal(revoked.includes('refresh-rotated'), true);
+});
+
+test('provider access state cannot leak between registrations or be reset by choosing another model', async () => {
+  const { auth } = await signedInAuth(async () => new Response(JSON.stringify(catalog)));
+  const registration = { clientId: 'other-client', subject: 'other-gm' };
+  const error = new AssistantError('subscription_sharing_usage_limit_exceeded', 'Review ChatGPT usage settings.');
+  error.accessState = 'usage_limited';
+  await auth.recordError(error, registration);
+  assert.equal(auth.status().accessState, 'ready');
+  const previousAuthorization = auth.record.account;
+  auth.record = { ...auth.record, account: { ...previousAuthorization, accessToken: 'reauthorized' } };
+  await auth.recordError(error, previousAuthorization);
+  assert.equal(auth.status().accessState, 'ready');
+  await auth.recordError(error);
+  assert.equal(auth.status().accessState, 'usage_limited');
+  await auth.selectModel('gpt-5.6-luna');
+  assert.equal(auth.status().accessState, 'usage_limited');
+  assert.equal(auth.status().message, error.message);
+});
+
+test('catalog outages retain identity and credentials and late catalog completion cannot restore a signed-out account', async () => {
+  const { auth, store } = await signedInAuth(async () => new Response(JSON.stringify(catalog)));
+  auth.fetchImpl = async () => new Response(JSON.stringify({ detail: 'Never expose access-test' }), { status: 503, headers: { 'x-request-id': 'req_catalog' } });
+  await assert.rejects(auth.loadModels(), error => error.status === 503 && error.requestId === 'req_catalog');
+  assert.equal(auth.status().signedIn, true);
+  assert.equal(auth.status().accessState, 'unavailable');
+  assert.equal((await store.load()).account.refreshToken, 'refresh-test');
+  assert.equal(auth.status().message.includes('access-test'), false);
+  let started;
+  let release;
+  const ready = new Promise(resolve => { started = resolve; });
+  const gate = new Promise(resolve => { release = resolve; });
+  auth.fetchImpl = async url => {
+    if (url.endsWith('/models')) { started(); await gate; return new Response(JSON.stringify(catalog)); }
+    return new Response();
+  };
+  const loading = auth.loadModels();
+  await ready;
+  await auth.signOut();
+  release();
+  await assert.rejects(loading, /changed while loading models/);
+  assert.equal(auth.status().signedIn, false);
+  assert.deepEqual(auth.status().models, []);
+  assert.equal((await store.load()).account.accessToken, undefined);
+});
+
+test('refresh retains omitted scopes and prevents inference when direct permission is removed', async () => {
+  const { auth } = await signedInAuth(async () => new Response(JSON.stringify(catalog)));
+  auth.record.account.expiresAt = 0;
+  auth.fetchImpl = async () => new Response(JSON.stringify({ ...tokenResponse('retained'), scope: undefined }));
+  assert.equal(await auth.accessToken(), 'access-retained');
+  auth.record.account.expiresAt = 0;
+  auth.fetchImpl = async () => new Response(JSON.stringify({ ...tokenResponse('disabled'), scope: 'openid profile email' }));
+  await assert.rejects(auth.accessToken(), error => error.code === 'CHATGPT_SCOPE');
+  assert.equal(auth.status().signedIn, true);
+  assert.equal(auth.status().accessState, 'disabled');
 });
