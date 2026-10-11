@@ -4,68 +4,52 @@
 [![Foundry 14 target](https://img.shields.io/badge/Foundry-14%20target-orange)](docs/verification.md)
 [![PF2e 8.5.1 target](https://img.shields.io/badge/PF2e-8.5.1%20target-purple)](docs/verification.md)
 [![Report a bug](https://img.shields.io/badge/Issues-report%20a%20bug-blue?logo=github)](https://github.com/tom-l-mot/tablewright-assistant/issues/new/choose)
-[![Contribute](https://img.shields.io/badge/Contribute-welcome-brightgreen?logo=github)](CONTRIBUTING.md)
+[![Contribute](https://img.shields.io/badge/Contribute-welcome-brightgreen?logo=github)](https://github.com/tom-l-mot/tablewright-assistant/blob/main/CONTRIBUTING.md)
 
-An AI companion for Game Masters using Pathfinder Second Edition in Foundry VTT.
+Describe an NPC, merchant, or encounter in Foundry VTT. Review the proposed sources and documents. Click **Approve creations** when the plan is right.
 
-Describe what you need, review the assistant's proposal, and approve the result inside Foundry. For example:
+Tablewright has two parts. **Tablewright Assistant** is a Foundry module. **Tablewright Connector** is a small Windows app that runs on the GM's computer and connects the module to ChatGPT. The Foundry server can be on another computer; that server does not need the desktop app.
 
-> Find a goblin NPC and turn it into Rook, a suspicious sewer guide with a short background.
+## Try the Windows test prerelease
 
-## What you can do today
+Version **0.2.0-alpha.2** is an unsigned Windows x64 test build. Get the installer and module from the [v0.2.0-alpha.2 release](https://github.com/tom-l-mot/tablewright-assistant/releases/tag/v0.2.0-alpha.2). If that release or either asset is absent, stop rather than substituting a source ZIP. Check the release notes for the reviewed commit, checksums, and download-verification results.
 
-- Import an existing NPC with a new name and background.
-- Create a shopkeeper's merchant sheet stocked with items from installed compendiums.
-- Propose an encounter using existing creatures and calculate its PF2e XP.
-- Review each proposal before a GM approval click creates anything.
+[Follow the beginner installation guide](docs/install.md). The normal workflow uses an installer and Foundry's **Install Module** screen. You do not need Node.js, a terminal, an API key, or a manually copied pairing token.
 
-A compendium is Foundry's library of creatures or items. Version 0.1.1 uses those existing entries. Original generated statistics, token placement, and automatic combat setup are not available yet.
+Live installation and use in Foundry are still pending. The user has deferred those checks until a disposable test world is ready. The initial target is Foundry 14 with PF2e 8.5.1. The manifest permits Foundry 13 through 14 without claiming verified compatibility. Local HTTP and remote HTTPS connectivity are implemented; actual remote Foundry connectivity remains unverified. See the [evidence table](docs/verification.md).
 
-## Start here
+## What the assistant creates
 
-**[Follow the beginner installation guide for Windows](docs/install.md).**
+- An existing compendium NPC with your chosen name and background.
+- A merchant sheet stocked with existing physical items.
+- An encounter's NPC actors and a journal roster, with XP calculated in Foundry.
 
-The guide explains what to download, where to paste each command, what to expect, and how to recover when a step fails. You do not need Git or GitHub CLI.
+A compendium is Foundry's library of creatures or items. Tablewright uses installed entries and retains their statistics. It does not generate original statistics, place tokens, create scenes, or start combat.
 
-The source is public under the MIT license. This is an early alpha. The guide below uses GitHub's source ZIP. There is no tagged release package, automatic installer, or Foundry package-directory installation yet.
+The assistant can propose a plan without creating anything. Only the GM's approval click in Foundry creates documents. Review each source and quantity before approving.
 
-The first target is Foundry 14 with PF2e 8.5.1, running on the same Windows PC as the assistant. Use a disposable test world. Live Foundry rendering, real imports, and paid AI requests remain unverified. Hosted Foundry and HTTPS connections are not supported by this alpha.
+## ChatGPT access
 
-## How the pieces connect
+The documented open-source Sign in with ChatGPT flow currently supports eligible **Plus and Pro** users. The requested ChatGPT Free experience is not met. Signing in alone does not prove that plan usage is available. [OpenAI quickstart](https://developers.openai.com/siwc/quickstart)
 
-You install two parts. The Foundry module shows the assistant window. The companion runs on your PC and connects that window to your AI.
+Tablewright reads the account's model list. It selects **GPT-5.6 Luna** only when that model is listed and no model has already been selected. That model uses **High** reasoning with **Standard** mode. If it is unavailable, choose a listed model yourself. Tablewright does not silently choose the first model, switch billing, or use a private endpoint.
 
-```mermaid
-flowchart LR
-    A["You describe what you need in Foundry"] --> B["Companion on your PC"]
-    B --> C["Your AI provider"]
-    C --> D["Proposal shown in Foundry"]
-    D --> E["You review and approve"]
-    E --> F["Foundry creates the NPC, shop, or roster"]
-```
+Requests share your ChatGPT plan limits. [ChatGPT usage settings](https://chatgpt.com/settings/usage) controls account usage and any optional credits. Real account authorization, model discovery, and a bounded Luna request passed in the packaged connector. Foundry world verification remains pending.
 
-The beginner guide uses an OpenAI API key for the button inside Foundry. If you already use local Codex or Claude tools, the [advanced MCP instructions](docs/technical-reference.md#configure-a-local-mcp-client) describe that option.
+## Privacy and recovery
 
-## Cost and privacy
+ChatGPT credentials remain in Windows-protected storage in the desktop app. Foundry receives account status and model choices, not account tokens. A request sends your prompt and limited world and compendium metadata to OpenAI. Source stat blocks, artwork, full documents, and existing journal contents stay in Foundry. [Data-flow details](docs/technical-reference.md#understand-the-data-flow)
 
-Tablewright has no module charge.
+If creation stops partway through, completed imports stay in the world. Keep the Foundry tab open and review **Retry missing creations**. Refreshing loses the session's pending plans and receipts. There is no automatic rollback or automatic world retry.
 
-You need your own Foundry license and AI access. The in-window OpenAI option can incur API charges. [OpenAI bills API usage separately from a ChatGPT subscription](https://help.openai.com/en/articles/9039756-managing-billing-settings-on-the-chatgpt-web-and-api-platform). The MCP option uses your AI client's own access and limits.
+## Project details
 
-Your provider key stays in the companion's local settings. Your prompt and limited world and compendium metadata go to the configured AI provider when you use the model button. Full source statistics, source artwork, and existing journal contents stay in Foundry. Read the [data-flow details](docs/technical-reference.md#understand-the-data-flow) before using private campaign material.
+Use the [help checklist](docs/install.md#ask-for-help) when opening an [issue](https://github.com/tom-l-mot/tablewright-assistant/issues/new/choose). Report vulnerabilities through the private method in [SECURITY.md](https://github.com/tom-l-mot/tablewright-assistant/blob/main/SECURITY.md). [Contributing guidance](https://github.com/tom-l-mot/tablewright-assistant/blob/main/CONTRIBUTING.md) explains how to propose changes.
 
-## Need help?
+Tablewright's code uses the MIT license. It has no module charge; Foundry and eligible AI access remain separate prerequisites. Optional donations are intended, but no donation page is available. No official Foundry directory listing is claimed.
 
-Start with [installation troubleshooting](docs/install.md#if-something-goes-wrong). [Open an issue](https://github.com/tom-l-mot/tablewright-assistant/issues/new/choose) to report a bug or suggest a feature. Use the [help request checklist](docs/install.md#ask-for-help) and never include your API key, pairing token, settings file, campaign names, or player information.
-
-Report security vulnerabilities through the private reporting method in [SECURITY.md](SECURITY.md). Do not post them as public issues.
-
-## For technical users and contributors
-
-- [How to contribute](CONTRIBUTING.md).
-- [Advanced setup and MCP configuration](docs/technical-reference.md).
-- [Verification evidence and live checklist](docs/verification.md).
-- [Architecture](docs/architecture.md).
-- [Source credits and license notices](docs/provenance.md).
-
-The source is public under the MIT license. A tagged release package, a Foundry listing, and the remaining live checks are still pending.
+- [Installation, everyday use, and troubleshooting](docs/install.md).
+- [Developer setup and the advanced MCP interface](docs/technical-reference.md).
+- [Architecture and security boundaries](docs/architecture.md).
+- [Verification results and pending live checks](docs/verification.md).
+- [Source credits and third-party notices](docs/provenance.md).

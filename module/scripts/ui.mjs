@@ -30,20 +30,37 @@ function planMarkup(plan, busy) {
 export function windowMarkup(state) {
   const connected = state.connectionState === 'connected';
   const connectionBusy = state.connectionState !== 'disconnected';
+  const chatgpt = state.chatgpt ?? { signedIn: false, email: '', models: [], model: '' };
+  const selectedProvider = state.providerChoice ?? 'chatgpt';
+  const canSend = connected && !state.busy && (selectedProvider === 'chatgpt' ? chatgpt.signedIn && Boolean(chatgpt.model) && (!chatgpt.accessState || chatgpt.accessState === 'ready') : selectedProvider === 'api_key' && state.apiKeyConfigured);
   return `<section class="assistant-body" aria-label="Tablewright Assistant">
     <p id="assistant-status" role="status" aria-live="polite" aria-atomic="true" tabindex="-1">${e(state.status)}</p>
-    <form data-form="connection" autocomplete="off"><fieldset><legend>Local companion connection</legend>
-      <label for="assistant-url">WebSocket URL</label><input id="assistant-url" name="url" type="url" value="${e(state.url)}" required ${connectionBusy ? 'disabled' : ''}>
-      <label for="assistant-token">Pairing token</label><input id="assistant-token" name="token" type="password" autocomplete="new-password" aria-describedby="assistant-token-help" ${connectionBusy ? 'disabled' : 'required'}>
-      <p id="assistant-token-help">Use the companion token. The provider key stays in the local Node process. The token is held only for this connection.</p>
-      <div class="assistant-actions"><button type="submit" ${connectionBusy || state.busy ? 'disabled' : ''}>Connect</button><button type="button" data-action="disconnect" ${connectionBusy && !state.busy ? '' : 'disabled'}>Disconnect</button></div>
+    <form data-form="connection" autocomplete="off"><fieldset><legend>Desktop connection</legend>
+      <p>Open Tablewright Connector on the GM's computer. Click Pair desktop, confirm the site and pairing code there, then click Connect desktop. Keep this Foundry tab open.</p>
+      <p>Pairing code ${e(state.pairingCode || 'appears after you click Pair desktop')}.</p>
+      <div class="assistant-actions"><button type="button" data-action="pair" ${connectionBusy || state.busy ? 'disabled' : ''}>Pair desktop</button><button type="submit" ${connectionBusy || state.busy ? 'disabled' : ''}>Connect desktop</button><button type="button" data-action="disconnect" ${connectionBusy && !state.busy ? '' : 'disabled'}>Disconnect</button></div>
     </fieldset></form>
+    <section aria-label="ChatGPT account"><h2>ChatGPT account</h2>
+      <p>${chatgpt.signedIn ? `Signed in as ${e(chatgpt.email || 'ChatGPT account')}.` : 'Sign in with ChatGPT to use an eligible ChatGPT plan without an API key.'}</p>
+      <p>Plan access ${e(chatgpt.accessState || 'not checked')}. ${e(chatgpt.message || '')}</p>
+      <p>${chatgpt.reasoningEffort === 'high' ? 'Reasoning effort High. Reasoning mode Standard.' : 'Choose a supported account model. No model or billing fallback is automatic.'}</p>
+      ${chatgpt.accessState === 'disabled' ? `<button type="button" data-action="chatgpt-enable" ${connected && !state.busy ? '' : 'disabled'}>Enable ChatGPT plan usage</button>` : ''}
+      ${chatgpt.accessState === 'usage_limited' || chatgpt.accessState === 'unavailable' ? `<button type="button" data-action="chatgpt-models" ${connected && !state.busy ? '' : 'disabled'}>Check access again</button>` : ''}
+      ${chatgpt.signedIn ? `${chatgpt.models.length ? `<label for="assistant-model">Model</label><select id="assistant-model" ${state.busy ? 'disabled' : ''}>${!chatgpt.models.some(model => model.slug === chatgpt.model) ? '<option value="" selected disabled>Choose a listed model</option>' : ''}${chatgpt.models.map(model => `<option value="${e(model.slug)}" ${model.slug === chatgpt.model ? 'selected' : ''}>${e(model.name)}</option>`).join('')}</select>` : `<button type="button" data-action="chatgpt-models" ${state.busy ? 'disabled' : ''}>Retry loading models</button>`}<button type="button" data-action="chatgpt-begin" ${state.busy ? 'disabled' : ''}>Reconnect ChatGPT</button><button type="button" data-action="chatgpt-signout" ${state.busy ? 'disabled' : ''}>Sign out of ChatGPT</button>` : `<button type="button" data-action="chatgpt-begin" ${connected && !state.busy ? '' : 'disabled'}>Continue with ChatGPT</button>${chatgpt.email ? `<button type="button" data-action="chatgpt-other" ${connected && !state.busy ? '' : 'disabled'}>Use another ChatGPT account</button>` : ''}`}
+      ${state.authUrl ? `<p><a href="${e(state.authUrl)}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Open ChatGPT sign-in</a>, then return to Foundry.</p>` : ''}
+      <button type="button" data-action="chatgpt-cancel" ${connected && !state.busy ? '' : 'disabled'}>Cancel sign-in</button>
+      <p><a href="https://chatgpt.com/settings/usage" target="_blank" rel="noopener noreferrer">View ChatGPT usage and app limits</a></p>
+    </section>
     <form data-form="prompt"><fieldset><legend>Request and encounter inputs</legend>
+      <label for="assistant-provider">Model access and billing</label><select id="assistant-provider" name="provider" ${state.busy ? 'disabled' : ''}>
+        <option value="chatgpt" ${selectedProvider === 'chatgpt' ? 'selected' : ''}>ChatGPT plan (shared limits)</option>
+        ${state.apiKeyConfigured ? `<option value="api_key" ${selectedProvider === 'api_key' ? 'selected' : ''}>API key (separate API billing)</option>` : ''}
+      </select><p>${selectedProvider === 'api_key' ? 'This request uses the configured API key and separate API billing.' : 'This request uses your ChatGPT plan and its shared usage limits.'}</p>
       <label for="assistant-prompt">Request</label><textarea id="assistant-prompt" name="prompt" rows="3" maxlength="4000" required>${e(state.prompt)}</textarea>
       <div class="assistant-party"><div><label for="assistant-level">Party level</label><input id="assistant-level" name="level" type="number" min="1" max="20" value="${e(state.party.level)}" required></div><div><label for="assistant-size">Party size</label><input id="assistant-size" name="size" type="number" min="1" max="8" value="${e(state.party.size)}" required></div><div><label for="assistant-threat">Threat</label><select id="assistant-threat" name="threat">${['trivial', 'low', 'moderate', 'severe', 'extreme'].map(threat => `<option value="${threat}" ${threat === state.party.threat ? 'selected' : ''}>${threat}</option>`).join('')}</select></div></div>
-      <p>Enter party values explicitly before sending. For encounters, Foundry computes XP from canonical creature levels. Scene placement and combat activation are outside this alpha.</p>
-      <button type="submit" ${connected && state.providerConfigured && !state.busy ? '' : 'disabled'}>Send to configured model</button>
-      <p>${connected && !state.providerConfigured ? 'Connected for MCP planning. No paid provider is configured.' : 'MCP clients can search and propose through this same connection.'}</p>
+      <p>Enter party values explicitly before sending. For encounters, Foundry computes XP from canonical creature levels. Encounters create actors and a journal for you to place.</p>
+      <button type="submit" ${canSend ? '' : 'disabled'}>Send to model</button>
+      <p>${connected && !canSend ? 'Sign in with ChatGPT and choose an available model before sending a request.' : 'The desktop connector sends requests. Review and approve world creations here.'}</p>
     </fieldset></form>
     <section aria-label="Provider response"><h2>Assistant response</h2><p class="assistant-response">${e(state.response || 'No model response yet.')}</p></section>
     <section aria-label="Creation plans"><h2>Review and approval</h2><p>Only your click on Approve or Retry creates documents. Rejecting a partial plan keeps completed imports. Refresh discards this session\'s pending plans and receipts.</p>${state.plans.length ? state.plans.map(plan => planMarkup(plan, state.busy)).join('') : '<p>No pending plans. Send a request or use a local MCP client.</p>'}</section>

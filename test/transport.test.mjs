@@ -5,19 +5,19 @@ import http from 'node:http';
 import { startCompanion } from '../companion/server.mjs';
 import { companionConfig } from '../companion/config.mjs';
 import { MAX_BODY, MAX_FRAME } from '../module/lib/protocol.mjs';
-import { config, token, origin, auth, connectBrowser, fakeGM, rpc, rejectedSocket } from './transport-fixture.mjs';
+import { config, token, origin, auth, connectBrowser, fakeGM, rpc, rejectedSocket, memoryCredentialStore } from './transport-fixture.mjs';
 import { npcRequest } from './fake-foundry.mjs';
 
 async function serverFor(t, overrides = {}, options = {}) {
-  const server = await startCompanion({ ...config, ...overrides }, options);
+  const server = await startCompanion({ ...config, ...overrides }, { credentialStore: memoryCredentialStore(), ...options });
   t.after(() => server.close());
   return server;
 }
 
-test('config enforces exact HTTP Foundry origin, separate token, and explicit provider model', () => {
+test('config enforces exact HTTP or HTTPS Foundry origin, separate token, and explicit provider model', () => {
   const env = { ASSISTANT_TOKEN: token, FOUNDRY_ORIGIN: origin };
   assert.equal(companionConfig(env).apiKey, '');
-  assert.throws(() => companionConfig({ ...env, FOUNDRY_ORIGIN: 'https://localhost:30000' }), /HTTP origin/);
+  assert.equal(companionConfig({ ...env, FOUNDRY_ORIGIN: 'https://localhost:30000' }).origin, 'https://localhost:30000');
   assert.throws(() => companionConfig({ ...env, FOUNDRY_ORIGIN: origin + '/' }), /exact HTTP/);
   assert.throws(() => companionConfig({ ...env, ASSISTANT_TOKEN: 'short' }), /separate random token/);
   assert.throws(() => companionConfig({ ...env, OPENAI_API_KEY: 'not-real' }), /explicit OPENAI_MODEL/);

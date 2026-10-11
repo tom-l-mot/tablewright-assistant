@@ -20,7 +20,7 @@ Foundry and PF2e are installed prerequisites. Their content remains in the user'
 - [OpenAI function calling](https://developers.openai.com/api/docs/guides/function-calling)
 - [Official MCP TypeScript SDK stdio guide](https://github.com/modelcontextprotocol/typescript-sdk/blob/main/docs/serving/stdio.md)
 
-Observed registry versions during setup: `@modelcontextprotocol/server` 2.3.1, legacy `@modelcontextprotocol/sdk` 1.32.1, `ws` 8.22.0. Pin the dependency actually used and verify its real exports during implementation.
+The project pins the SDK and runtime versions in package.json and package-lock.json. Desktop packaging adds Electron and electron-builder. Their dependencies are distinct from the small Foundry module archive.
 
 Implemented reuse: module/lib/index-fields.mjs adapts only getNestedValue from the bridge. THIRD_PARTY_NOTICES carries its complete MIT notice and ships in the module archive. Other implementation code is original under LICENSE.
 
@@ -32,4 +32,16 @@ Native normalization uses world collections fromCompendium. Creation explicitly 
 
 ## Release boundary
 
-The source repository is public under the MIT license, but Tablewright remains a local alpha. The model/MCP receive bounded metadata, not full source descriptions, document JSON, art, or assets. A permitted-pack setting does not establish model-use rights. A tagged release, official listing, and content-rights review remain pending under [Foundry's AI policy](https://foundryvtt.com/article/ai-policy/).
+Version 0.2.0-alpha.2 is an unsigned Windows test prerelease in the public [Tablewright repository](https://github.com/tom-l-mot/tablewright-assistant). Consult the [release notes](https://github.com/tom-l-mot/tablewright-assistant/releases/tag/v0.2.0-alpha.2) for the reviewed source commit, artifact checksums, packaged-source comparison, and fresh-download results. If the release or an asset is missing, stop rather than substituting another build. Live Foundry verification remains pending. No official Foundry directory listing is claimed.
+
+The model/MCP receive bounded metadata, not full source descriptions, document JSON, art, or assets. A permitted-pack setting does not establish model-use rights. Official listing and content-rights review remain separate matters under [Foundry's AI policy](https://foundryvtt.com/article/ai-policy/).
+
+## Desktop and account references
+
+The desktop lifecycle uses Electron's documented [app API](https://www.electronjs.org/docs/latest/api/app), [Tray API](https://www.electronjs.org/docs/latest/api/tray), [deep-link handling](https://www.electronjs.org/docs/latest/tutorial/launch-app-from-url-in-another-app), and [safeStorage](https://www.electronjs.org/docs/latest/api/safe-storage). The credential-store implementation is original code against those APIs.
+
+The account flow follows OpenAI's [open-source Sign in with ChatGPT guide](https://developers.openai.com/siwc/token-sharing-open-source). Its [quickstart](https://developers.openai.com/siwc/quickstart) currently lists eligible Plus and Pro users for this integration. Free support is not established. Documentation access does not prove a real Tablewright account sign-in or successful inference.
+
+Browser transport follows the current [GoogleChrome local-network guidance](https://github.com/GoogleChrome/modern-web-guidance/blob/main/skills/modern-web-guidance/guides/security/local-network-access.md) and [Local Network Access specification](https://wicg.github.io/local-network-access/). Chrome 154 loopback WebSocket support is the implementation target. Actual remote Foundry behavior still requires live verification.
+
+The beginner module procedure uses Foundry's documented [manifest installation](https://foundryvtt.com/article/modules/). No generated screenshots or mock screens are used as evidence of a successful installation.
