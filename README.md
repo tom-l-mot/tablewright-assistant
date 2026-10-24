@@ -5,6 +5,7 @@
 [![PF2e 8.5.1 target](https://img.shields.io/badge/PF2e-8.5.1%20target-purple)](docs/verification.md)
 [![Report a bug](https://img.shields.io/badge/Issues-report%20a%20bug-blue?logo=github)](https://github.com/tom-l-mot/tablewright-assistant/issues/new/choose)
 [![Contribute](https://img.shields.io/badge/Contribute-welcome-brightgreen?logo=github)](CONTRIBUTING.md)
+[![Support on Ko-fi](https://img.shields.io/badge/Support_on_Ko--fi-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/tomlmot)
 
 An AI companion for Game Masters using Pathfinder Second Edition in Foundry VTT.
 
