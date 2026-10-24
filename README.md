@@ -69,3 +69,7 @@ Report security vulnerabilities through the private reporting method in [SECURIT
 - [Source credits and license notices](docs/provenance.md).
 
 The source is public under the MIT license. A tagged release package, a Foundry listing, and the remaining live checks are still pending.
+
+## Support development
+
+If you'd like to support development, you can [buy me a coffee on Ko-fi](https://ko-fi.com/tomlmot). Thanks for your support!
