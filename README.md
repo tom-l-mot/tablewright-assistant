@@ -1,5 +1,6 @@
 # Tablewright Assistant
 
+[![Early alpha](https://img.shields.io/badge/Status-early_alpha-orange)](#start-here)
 [![MIT License](https://img.shields.io/github/license/tom-l-mot/tablewright-assistant)](LICENSE)
 [![Foundry 14 target](https://img.shields.io/badge/Foundry-14%20target-orange)](docs/verification.md)
 [![PF2e 8.5.1 target](https://img.shields.io/badge/PF2e-8.5.1%20target-purple)](docs/verification.md)
